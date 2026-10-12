@@ -24,6 +24,6 @@ class SystemInfoIntegrationTest {
         SystemInfo info = controller.info();
 
         assertThat(info.application()).isEqualTo("Nexus");
-        assertThat(info.supportedCurrencies()).containsExactly("EUR", "TND");
+        assertThat(info.supportedCurrencies()).containsExactly("EUR", "TND", "USD");
     }
 }

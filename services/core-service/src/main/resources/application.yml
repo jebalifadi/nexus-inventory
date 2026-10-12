@@ -1,0 +1,28 @@
+# Defaults are for local development only; override them with environment variables.
+spring:
+  application:
+    name: core-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/nexus}
+    username: ${DATABASE_USER:nexus}
+    password: ${DATABASE_PASSWORD:nexus_dev_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

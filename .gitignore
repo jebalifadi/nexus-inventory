@@ -1,0 +1,23 @@
+# Secrets and local configuration: never commit these
+.env
+*.env.local
+*.pem
+*.key
+
+# Build output
+build/
+out/
+target/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs and operating systems
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs and database dumps (may contain business data)
+*.log
+*.dump
+*.sql.gz

@@ -1,0 +1,100 @@
+# Nexus
+
+**Inventory management for trading companies.** A company buys goods from suppliers in any
+country, stores them and sells them wherever it decides. Nexus tracks every product from
+purchase to sale, with its real cost and real profit.
+
+> **Status:** Phase 0 (foundations). See the [roadmap](#roadmap).
+
+## Features (planned)
+
+- Catalog with owner-defined categories and fields (for example *Phones: Modell, Speicher, Farbe*)
+- Stock tracked as individual **units** (serial numbers) or **lots** (quantities), per warehouse
+- Purchases and sales with lines, partial payments and money owed
+- Real cost per item: FIFO stock costing and shared costs (shipping, customs) split fairly
+- Dashboard: stock, cash, money owed, profit, business value
+- Several currencies, with exchange rates frozen on each transaction
+- Warranty claims, alerts, audit log
+- AI chat assistant that answers from live data and drafts entries for the owner to confirm
+
+## Tech stack
+
+Java 25 · Spring Boot 4.1 · PostgreSQL 18 · Flyway · Testcontainers · Docker · GitHub Actions
+(later: React, Redis, RabbitMQ, Kubernetes, Python/FastAPI with a local AI model)
+
+## Repository layout
+
+```
+nexus-inventory/
+├── services/core-service/   Spring Boot backend (inventory, sales, payments)
+├── deploy/docker/           Docker Compose for local development
+├── docs/                    Architecture decision records (adr/)
+└── .github/workflows/       CI pipeline
+```
+
+## Run it locally (macOS)
+
+You need **Java 25**, **Docker Desktop** and **Git**. Check with:
+
+```bash
+java -version     # should say 25
+docker --version
+git --version
+```
+
+1. Start the database:
+
+   ```bash
+   cd deploy/docker
+   docker compose up -d
+   ```
+
+2. Start the backend (first run downloads Gradle and the libraries, so it takes a few minutes):
+
+   ```bash
+   cd services/core-service
+   ./gradlew bootRun
+   ```
+
+3. Open in your browser:
+   - <http://localhost:8080/actuator/health> → `{"status":"UP"}`
+   - <http://localhost:8080/api/v1/system/info> → the application name and its currencies
+
+4. Run the tests (Docker must be running, because the tests start their own PostgreSQL):
+
+   ```bash
+   cd services/core-service
+   ./gradlew test
+   ```
+
+## Environment variables
+
+Copy `.env.example` to `.env` to override the local defaults. `.env` is never committed.
+
+| Variable | Default (local only) |
+|---|---|
+| `DATABASE_URL` | `jdbc:postgresql://localhost:5432/nexus` |
+| `DATABASE_USER` | `nexus` |
+| `DATABASE_PASSWORD` | `nexus_dev_password` |
+
+## Database migrations
+
+Schema changes are SQL files in `services/core-service/src/main/resources/db/migration`,
+applied automatically by Flyway at startup. Never edit a migration that already ran; add a new one.
+
+## Roadmap
+
+| Phase | Goal |
+|---|---|
+| **0 · Foundations** ← now | Repository, backend skeleton, database, CI |
+| 1 · Core domain | Catalog, units and lots, purchases, sales, payments, FIFO, landed cost |
+| 2 · Frontend | React app for daily work |
+| 3 · Insight | Dashboard, analytics, exchange rates, alerts, import |
+| 4 · DevOps | Containers for everything, full CI/CD |
+| 5 · Services | Extract services, events with RabbitMQ, API gateway |
+| 6 · AI | Chat assistant with a local model |
+| 7 · Kubernetes | Deployment, monitoring, load tests |
+
+## License
+
+[MIT](LICENSE) © 2026 Fadi Jebali

@@ -4,7 +4,7 @@
 country, stores them and sells them wherever it decides. Nexus tracks every product from
 purchase to sale, with its real cost and real profit.
 
-> **Status:** Phase 0 (foundations). See the [roadmap](#roadmap).
+> **Status:** Phase 0 complete (v0.1.0). Next: Phase 1, core domain. See the [roadmap](#roadmap).
 
 ## Features (planned)
 

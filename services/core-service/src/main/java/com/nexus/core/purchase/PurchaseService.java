@@ -6,6 +6,7 @@ import com.nexus.core.catalog.TrackingMode;
 import com.nexus.core.money.Money;
 import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shared.NotFoundException;
+import com.nexus.core.shared.PaymentStatus;
 import com.nexus.core.stock.StockService;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -28,11 +29,14 @@ public class PurchaseService {
     private final PurchaseRepository repository;
     private final CatalogService catalog;
     private final StockService stock;
+    private final PurchasePayments payments;
 
-    PurchaseService(PurchaseRepository repository, CatalogService catalog, StockService stock) {
+    PurchaseService(PurchaseRepository repository, CatalogService catalog, StockService stock,
+                    PurchasePayments payments) {
         this.repository = repository;
         this.catalog = catalog;
         this.stock = stock;
+        this.payments = payments;
     }
 
     @Transactional
@@ -153,8 +157,9 @@ public class PurchaseService {
                     line.quantity(), unitPrice, lineTotal, stock.unitIdsOfPurchaseLine(line.id()),
                     stock.lotIdOfPurchaseLine(line.id()).orElse(null)));
         }
+        Money paid = Money.of(payments.paidForPurchase(row.id()).toPlainString(), row.currency());
         return new Purchase(row.id(), row.publicId(), row.supplierId(), row.supplierName(), row.purchaseDate(),
-                row.currency(), row.notes(), lines, total);
+                row.currency(), row.notes(), lines, total, paid, total.minus(paid), PaymentStatus.of(total, paid));
     }
 
     private static String requireCurrency(String currency) {

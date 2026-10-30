@@ -6,6 +6,7 @@ import com.nexus.core.catalog.TrackingMode;
 import com.nexus.core.money.Money;
 import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shared.NotFoundException;
+import com.nexus.core.shared.PaymentStatus;
 import com.nexus.core.shipment.ShipmentService;
 import com.nexus.core.stock.InventoryUnit;
 import com.nexus.core.stock.LotTaken;
@@ -32,12 +33,15 @@ public class SaleService {
     private final CatalogService catalog;
     private final StockService stock;
     private final ShipmentService shipments;
+    private final SalePayments payments;
 
-    SaleService(SaleRepository repository, CatalogService catalog, StockService stock, ShipmentService shipments) {
+    SaleService(SaleRepository repository, CatalogService catalog, StockService stock, ShipmentService shipments,
+                SalePayments payments) {
         this.repository = repository;
         this.catalog = catalog;
         this.stock = stock;
         this.shipments = shipments;
+        this.payments = payments;
     }
 
     @Transactional
@@ -204,8 +208,10 @@ public class SaleService {
                 profit = profit.plus(lineProfit);
             }
         }
+        Money paid = Money.of(payments.paidForSale(row.id()).toPlainString(), row.currency());
         return new Sale(row.id(), row.publicId(), row.customerId(), row.customerName(), row.locationId(),
-                row.saleDate(), row.currency(), row.notes(), lines, total, profitKnown ? profit : null);
+                row.saleDate(), row.currency(), row.notes(), lines, total, profitKnown ? profit : null, paid,
+                total.minus(paid), PaymentStatus.of(total, paid));
     }
 
     private static int requireWarrantyDays(Integer days) {

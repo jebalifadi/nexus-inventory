@@ -45,6 +45,11 @@ public record Money(BigDecimal amount, Currency currency) {
         return new Money(amount.multiply(BigDecimal.valueOf(quantity)), currency);
     }
 
+    /** This amount in another currency, at the given rate (1 unit of this currency = rate units of the other). */
+    public Money convertTo(String currencyCode, BigDecimal rate) {
+        return new Money(amount.multiply(rate), Currency.getInstance(currencyCode));
+    }
+
     public boolean isNegative() {
         return amount.signum() < 0;
     }

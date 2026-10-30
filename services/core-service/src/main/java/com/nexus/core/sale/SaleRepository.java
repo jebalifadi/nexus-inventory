@@ -18,10 +18,12 @@ class SaleRepository {
     }
 
     record LineRow(long id, int lineNo, long productId, String unitPublicId, int quantity, BigDecimal unitPrice,
-                   BigDecimal costAmount, String costCurrency, int warrantyDays, String warrantyTerms) {
+                   BigDecimal costAmount, String costCurrency, int warrantyDays, String warrantyTerms,
+                   Long unitId, BigDecimal unitCostAmount, String unitCostCurrency) {
     }
 
-    record AllocationRow(String lotPublicId, int quantity, BigDecimal unitCostAmount, String unitCostCurrency) {
+    record AllocationRow(String lotPublicId, int quantity, BigDecimal unitCostAmount, String unitCostCurrency,
+                         long lotId, BigDecimal lotCostAmount, String lotCostCurrency) {
     }
 
     private static final String CUSTOMER_COLUMNS = "id, name, phone, email, country, notes";
@@ -138,7 +140,8 @@ class SaleRepository {
     List<LineRow> findLines(long saleId) {
         return jdbc.sql("""
                         SELECT l.id, l.line_no, l.product_id, u.public_id AS unit_public_id, l.quantity,
-                               l.unit_price_amount, l.cost_amount, l.cost_currency, l.warranty_days, l.warranty_terms
+                               l.unit_price_amount, l.cost_amount, l.cost_currency, l.warranty_days, l.warranty_terms,
+                               u.id AS unit_id, u.unit_cost_amount, u.unit_cost_currency
                         FROM sale_lines l
                         LEFT JOIN inventory_units u ON u.id = l.unit_id
                         WHERE l.sale_id = :saleId
@@ -154,20 +157,27 @@ class SaleRepository {
                         rs.getBigDecimal("cost_amount"),
                         trim(rs.getString("cost_currency")),
                         rs.getInt("warranty_days"),
-                        rs.getString("warranty_terms")))
+                        rs.getString("warranty_terms"),
+                        rs.getObject("unit_id", Long.class),
+                        rs.getBigDecimal("unit_cost_amount"),
+                        trim(rs.getString("unit_cost_currency"))))
                 .list();
     }
 
     List<AllocationRow> findAllocations(long saleLineId) {
         return jdbc.sql("""
-                        SELECT l.public_id, a.quantity, a.unit_cost_amount, a.unit_cost_currency
+                        SELECT l.public_id, a.quantity, a.unit_cost_amount, a.unit_cost_currency,
+                               l.id AS lot_id, l.unit_cost_amount AS lot_cost_amount,
+                               l.unit_cost_currency AS lot_cost_currency
                         FROM stock_allocations a
                         JOIN inventory_lots l ON l.id = a.lot_id
                         WHERE a.sale_line_id = :saleLineId
                         ORDER BY a.id""")
                 .param("saleLineId", saleLineId)
                 .query((rs, n) -> new AllocationRow(rs.getString("public_id"), rs.getInt("quantity"),
-                        rs.getBigDecimal("unit_cost_amount"), trim(rs.getString("unit_cost_currency"))))
+                        rs.getBigDecimal("unit_cost_amount"), trim(rs.getString("unit_cost_currency")),
+                        rs.getLong("lot_id"), rs.getBigDecimal("lot_cost_amount"),
+                        trim(rs.getString("lot_cost_currency"))))
                 .list();
     }
 

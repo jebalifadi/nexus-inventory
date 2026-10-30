@@ -46,13 +46,15 @@ class SaleController {
     }
 
     record SaleView(String id, Long customerId, String customerName, Long locationId, LocalDate saleDate,
-                    String currency, String notes, List<LineView> lines, MoneyJson total, MoneyJson profit,
-                    MoneyJson paid, MoneyJson balance, PaymentStatus paymentStatus) {
+                    String currency, String notes, List<LineView> lines, MoneyJson total, MoneyJson saleExpenses,
+                    MoneyJson profit, String profitUnknownReason, MoneyJson paid, MoneyJson balance,
+                    PaymentStatus paymentStatus) {
 
         static SaleView of(Sale s) {
             return new SaleView(s.publicId(), s.customerId(), s.customerName(), s.locationId(), s.saleDate(),
                     s.currency(), s.notes(), s.lines().stream().map(LineView::of).toList(), MoneyJson.of(s.total()),
-                    MoneyJson.of(s.profit()), MoneyJson.of(s.paid()), MoneyJson.of(s.balance()), s.paymentStatus());
+                    MoneyJson.of(s.saleExpenses()), MoneyJson.of(s.profit()), s.profitUnknownReason(),
+                    MoneyJson.of(s.paid()), MoneyJson.of(s.balance()), s.paymentStatus());
         }
     }
 

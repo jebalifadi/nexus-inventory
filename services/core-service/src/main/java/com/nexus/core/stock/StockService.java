@@ -135,6 +135,58 @@ public class StockService {
         return repository.findLots();
     }
 
+    /** Takes a unit out of stock to put it in a shipment. */
+    @Transactional
+    public InventoryUnit sendUnit(String publicId, long fromLocationId) {
+        InventoryUnit unit = repository.lockUnitByPublicId(publicId).orElseThrow(() -> unitNotFound(publicId));
+        if (unit.status() != UnitStatus.IN_INVENTORY) {
+            throw new BusinessRuleException("Unit " + publicId + " is " + unit.status()
+                    + ": only units in inventory can be shipped");
+        }
+        if (unit.locationId() != fromLocationId) {
+            throw new BusinessRuleException("Unit " + publicId + " is not at location " + fromLocationId);
+        }
+        repository.updateUnitStatus(unit.id(), UnitStatus.IN_TRANSIT);
+        repository.insertStatusChange(unit.id(), unit.status(), UnitStatus.IN_TRANSIT);
+        return repository.findUnitById(unit.id()).orElseThrow();
+    }
+
+    /** Takes a whole lot out of stock to put it in a shipment. */
+    @Transactional
+    public InventoryLot sendLot(String publicId, long fromLocationId) {
+        InventoryLot lot = repository.lockLotByPublicId(publicId).orElseThrow(() -> lotNotFound(publicId));
+        if (!"IN_STOCK".equals(lot.status()) || lot.quantityRemaining() == 0) {
+            throw new BusinessRuleException("Lot " + publicId + " is " + lot.status()
+                    + ": only lots in stock can be shipped");
+        }
+        if (lot.locationId() != fromLocationId) {
+            throw new BusinessRuleException("Lot " + publicId + " is not at location " + fromLocationId);
+        }
+        repository.updateLot(lot.id(), "IN_TRANSIT", lot.locationId());
+        return repository.findLotById(lot.id()).orElseThrow();
+    }
+
+    /** A shipped unit arrives: it is in stock again, at its new location. */
+    @Transactional
+    public void receiveShippedUnit(long unitId, long toLocationId) {
+        InventoryUnit unit = repository.findUnitById(unitId).orElseThrow();
+        if (unit.status() != UnitStatus.IN_TRANSIT) {
+            throw new BusinessRuleException("Unit " + unit.publicId() + " is not in transit");
+        }
+        repository.moveUnit(unitId, UnitStatus.IN_INVENTORY, toLocationId);
+        repository.insertStatusChange(unitId, UnitStatus.IN_TRANSIT, UnitStatus.IN_INVENTORY);
+    }
+
+    /** A shipped lot arrives: it is in stock again, at its new location. */
+    @Transactional
+    public void receiveShippedLot(long lotId, long toLocationId) {
+        InventoryLot lot = repository.findLotById(lotId).orElseThrow();
+        if (!"IN_TRANSIT".equals(lot.status())) {
+            throw new BusinessRuleException("Lot " + lot.publicId() + " is not in transit");
+        }
+        repository.updateLot(lotId, "IN_STOCK", toLocationId);
+    }
+
     @Transactional(readOnly = true)
     public List<String> unitIdsOfPurchaseLine(long purchaseLineId) {
         return repository.findUnitIdsByPurchaseLine(purchaseLineId);
@@ -177,6 +229,9 @@ public class StockService {
         if (unit.status() == UnitStatus.SOLD || unit.status() == UnitStatus.CLOSED) {
             throw new BusinessRuleException("Unit " + publicId + " is sold and cannot be deleted");
         }
+        if (unit.status() == UnitStatus.IN_TRANSIT) {
+            throw new BusinessRuleException("Unit " + publicId + " is on its way in a shipment and cannot be deleted");
+        }
         trash.markDeleted(TrashType.UNIT, unit.id(), reason);
     }
 
@@ -195,6 +250,9 @@ public class StockService {
         InventoryLot lot = repository.lockLotByPublicId(publicId).orElseThrow(() -> lotNotFound(publicId));
         if (lot.quantityRemaining() < lot.quantityReceived()) {
             throw new BusinessRuleException("Lot " + publicId + " has sales and cannot be deleted");
+        }
+        if ("IN_TRANSIT".equals(lot.status())) {
+            throw new BusinessRuleException("Lot " + publicId + " is on its way in a shipment and cannot be deleted");
         }
         trash.markDeleted(TrashType.LOT, lot.id(), reason);
     }

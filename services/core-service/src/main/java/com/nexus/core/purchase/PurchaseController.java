@@ -1,7 +1,7 @@
 package com.nexus.core.purchase;
 
-import com.nexus.core.money.Money;
 import com.nexus.core.shared.BusinessRuleException;
+import com.nexus.core.web.MoneyJson;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -23,13 +23,6 @@ class PurchaseController {
 
     record NewPurchase(Long supplierId, LocalDate purchaseDate, String currency, String notes,
                        List<NewPurchaseLine> lines) {
-    }
-
-    record MoneyJson(String amount, String currency) {
-
-        static MoneyJson of(Money money) {
-            return new MoneyJson(money.amount().toPlainString(), money.currency().getCurrencyCode());
-        }
     }
 
     record LineView(int lineNo, Long productId, Long locationId, int quantity, MoneyJson unitPrice,

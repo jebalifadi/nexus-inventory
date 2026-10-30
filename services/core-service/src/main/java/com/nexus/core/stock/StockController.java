@@ -2,6 +2,7 @@ package com.nexus.core.stock;
 
 import com.nexus.core.money.Money;
 import com.nexus.core.shared.BusinessRuleException;
+import com.nexus.core.web.MoneyJson;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -20,24 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 class StockController {
-
-    record MoneyJson(String amount, String currency) {
-
-        static MoneyJson of(Money money) {
-            return new MoneyJson(money.amount().toPlainString(), money.currency().getCurrencyCode());
-        }
-
-        Money toMoney() {
-            if (amount == null || currency == null) {
-                throw new BusinessRuleException("Amount and currency are required");
-            }
-            try {
-                return Money.of(amount, currency);
-            } catch (IllegalArgumentException e) {
-                throw new BusinessRuleException("Invalid amount or currency: " + amount + " " + currency);
-            }
-        }
-    }
 
     record NewLocation(String name, String country) {
     }

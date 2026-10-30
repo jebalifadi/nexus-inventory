@@ -1,6 +1,8 @@
 package com.nexus.core.catalog;
 
-import com.nexus.core.shared.NotFoundException;
+import com.nexus.core.shared.BusinessRuleException;
+import com.nexus.core.trash.TrashRepository;
+import com.nexus.core.trash.TrashType;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -11,9 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class CatalogService {
 
     private final CatalogRepository repository;
+    private final ProductStock productStock;
+    private final TrashRepository trash;
 
-    CatalogService(CatalogRepository repository) {
+    CatalogService(CatalogRepository repository, ProductStock productStock, TrashRepository trash) {
         this.repository = repository;
+        this.productStock = productStock;
+        this.trash = trash;
     }
 
     @Transactional
@@ -34,7 +40,7 @@ public class CatalogService {
     @Transactional(readOnly = true)
     public Category getCategory(long id) {
         return repository.findCategory(id)
-                .orElseThrow(() -> new NotFoundException("Category " + id + " not found"));
+                .orElseThrow(() -> trash.notFound(TrashType.CATEGORY, id, "Category " + id));
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +63,12 @@ public class CatalogService {
     @Transactional(readOnly = true)
     public Product getProduct(long id) {
         return repository.findProduct(id)
-                .orElseThrow(() -> new NotFoundException("Product " + id + " not found"));
+                .orElseThrow(() -> trash.notFound(TrashType.PRODUCT, id, "Product " + id));
+    }
+
+    /** Validates the values of one physical item of a product's category. */
+    public Map<String, String> validateItemAttributes(Category category, Map<String, String> values) {
+        return ProductRules.validateItemAttributes(category, values);
     }
 
     @Transactional(readOnly = true)
@@ -66,5 +77,48 @@ public class CatalogService {
                 ? repository.findProductIds()
                 : repository.findProductIdsByCategory(categoryId);
         return ids.stream().map(this::getProduct).toList();
+    }
+
+    /** Soft deletes a category. Only allowed when it has no products left. */
+    @Transactional
+    public void deleteCategory(long id, String reason) {
+        Category category = getCategory(id);
+        long products = repository.countActiveProducts(id);
+        if (products > 0) {
+            throw new BusinessRuleException("Category '" + category.name() + "' still has " + products
+                    + " product(s): delete them first");
+        }
+        trash.markDeleted(TrashType.CATEGORY, id, reason);
+    }
+
+    @Transactional
+    public Category restoreCategory(long id) {
+        trash.requireDeleted(TrashType.CATEGORY, id, "Category " + id);
+        trash.restore(TrashType.CATEGORY, id);
+        return getCategory(id);
+    }
+
+    /** Soft deletes a product. Only allowed when none of its items are still held; sold items stay. */
+    @Transactional
+    public void deleteProduct(long id, String reason) {
+        Product product = getProduct(id);
+        long held = productStock.itemsHeld(id);
+        if (held > 0) {
+            throw new BusinessRuleException("Product " + product.sku() + " still has " + held
+                    + " item(s) in stock or on the way: sell or delete them first");
+        }
+        trash.markDeleted(TrashType.PRODUCT, id, reason);
+    }
+
+    @Transactional
+    public Product restoreProduct(long id) {
+        trash.requireDeleted(TrashType.PRODUCT, id, "Product " + id);
+        long categoryId = repository.findCategoryIdOfProduct(id).orElseThrow();
+        if (trash.isDeleted(TrashType.CATEGORY, categoryId)) {
+            throw new BusinessRuleException("Product " + id + " belongs to a deleted category: restore category "
+                    + categoryId + " first");
+        }
+        trash.restore(TrashType.PRODUCT, id);
+        return getProduct(id);
     }
 }

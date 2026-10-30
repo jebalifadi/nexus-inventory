@@ -2,6 +2,7 @@ package com.nexus.core.web;
 
 import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shared.NotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -25,6 +26,12 @@ class ApiExceptionHandler {
     @ExceptionHandler(DuplicateKeyException.class)
     ProblemDetail handleDuplicate(DuplicateKeyException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
-                "This value already exists, for example the category name or the SKU");
+                "This value already exists, for example a category name, location name or SKU");
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleIntegrity(DataIntegrityViolationException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                "The request refers to data that does not exist or breaks a data rule, for example an unknown currency");
     }
 }

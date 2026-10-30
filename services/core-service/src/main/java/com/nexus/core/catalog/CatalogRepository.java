@@ -54,7 +54,7 @@ class CatalogRepository {
     Optional<Category> findCategory(long id) {
         record Row(long id, String name, TrackingMode mode) {
         }
-        Optional<Row> row = jdbc.sql("SELECT id, name, tracking_mode FROM categories WHERE id = :id")
+        Optional<Row> row = jdbc.sql("SELECT id, name, tracking_mode FROM categories WHERE id = :id AND deleted_at IS NULL")
                 .param("id", id)
                 .query((rs, n) -> new Row(rs.getLong("id"), rs.getString("name"),
                         TrackingMode.valueOf(rs.getString("tracking_mode"))))
@@ -63,7 +63,7 @@ class CatalogRepository {
     }
 
     List<Long> findAllCategoryIds() {
-        return jdbc.sql("SELECT id FROM categories ORDER BY name").query(Long.class).list();
+        return jdbc.sql("SELECT id FROM categories WHERE deleted_at IS NULL ORDER BY name").query(Long.class).list();
     }
 
     long insertProduct(long categoryId, String sku, String name) {
@@ -89,7 +89,7 @@ class CatalogRepository {
     Optional<Product> findProduct(long id) {
         record Row(long id, long categoryId, String sku, String name) {
         }
-        Optional<Row> row = jdbc.sql("SELECT id, category_id, sku, name FROM products WHERE id = :id")
+        Optional<Row> row = jdbc.sql("SELECT id, category_id, sku, name FROM products WHERE id = :id AND deleted_at IS NULL")
                 .param("id", id)
                 .query((rs, n) -> new Row(rs.getLong("id"), rs.getLong("category_id"),
                         rs.getString("sku"), rs.getString("name")))
@@ -98,14 +98,29 @@ class CatalogRepository {
     }
 
     List<Long> findProductIds() {
-        return jdbc.sql("SELECT id FROM products ORDER BY id").query(Long.class).list();
+        return jdbc.sql("SELECT id FROM products WHERE deleted_at IS NULL ORDER BY id").query(Long.class).list();
     }
 
     List<Long> findProductIdsByCategory(long categoryId) {
-        return jdbc.sql("SELECT id FROM products WHERE category_id = :categoryId ORDER BY id")
+        return jdbc.sql("SELECT id FROM products WHERE category_id = :categoryId AND deleted_at IS NULL ORDER BY id")
                 .param("categoryId", categoryId)
                 .query(Long.class)
                 .list();
+    }
+
+    long countActiveProducts(long categoryId) {
+        return jdbc.sql("SELECT count(*) FROM products WHERE category_id = :categoryId AND deleted_at IS NULL")
+                .param("categoryId", categoryId)
+                .query(Long.class)
+                .single();
+    }
+
+    /** The category of a product, also when the product is deleted. */
+    Optional<Long> findCategoryIdOfProduct(long productId) {
+        return jdbc.sql("SELECT category_id FROM products WHERE id = :id")
+                .param("id", productId)
+                .query(Long.class)
+                .optional();
     }
 
     private List<CategoryField> findFields(long categoryId) {

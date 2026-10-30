@@ -4,6 +4,7 @@ import com.nexus.core.shared.BusinessRuleException;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,6 +53,18 @@ class CatalogController {
         return catalog.getCategory(id);
     }
 
+    @DeleteMapping("/categories/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteCategory(@PathVariable("id") long id,
+                        @RequestParam(name = "reason", required = false) String reason) {
+        catalog.deleteCategory(id, reason);
+    }
+
+    @PostMapping("/categories/{id}/restore")
+    Category restoreCategory(@PathVariable("id") long id) {
+        return catalog.restoreCategory(id);
+    }
+
     @PostMapping("/products")
     @ResponseStatus(HttpStatus.CREATED)
     Product createProduct(@RequestBody NewProduct request) {
@@ -69,5 +82,17 @@ class CatalogController {
     @GetMapping("/products/{id}")
     Product getProduct(@PathVariable("id") long id) {
         return catalog.getProduct(id);
+    }
+
+    @DeleteMapping("/products/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteProduct(@PathVariable("id") long id,
+                       @RequestParam(name = "reason", required = false) String reason) {
+        catalog.deleteProduct(id, reason);
+    }
+
+    @PostMapping("/products/{id}/restore")
+    Product restoreProduct(@PathVariable("id") long id) {
+        return catalog.restoreProduct(id);
     }
 }

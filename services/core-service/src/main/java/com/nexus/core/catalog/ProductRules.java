@@ -28,19 +28,29 @@ final class ProductRules {
         return value;
     }
 
-    /** Returns the validated values, in the category's field order. */
+    /** Validates product-level values; returns them in the category's field order. */
     static Map<String, String> validateAttributes(Category category, Map<String, String> input) {
+        return validate(category, input, FieldScope.PRODUCT);
+    }
+
+    /** Validates the values of one physical item (for example battery health or IMEI). */
+    static Map<String, String> validateItemAttributes(Category category, Map<String, String> input) {
+        return validate(category, input, FieldScope.ITEM);
+    }
+
+    private static Map<String, String> validate(Category category, Map<String, String> input, FieldScope scope) {
         Map<String, String> values = input == null ? Map.of() : input;
         for (String key : values.keySet()) {
             CategoryField field = category.field(key).orElseThrow(() -> new BusinessRuleException(
                     "Unknown field '" + key + "' for category '" + category.name() + "'"));
-            if (field.scope() == FieldScope.ITEM) {
-                throw new BusinessRuleException(
-                        "Field '" + field.label() + "' is filled in for each item, not for the product");
+            if (field.scope() != scope) {
+                throw new BusinessRuleException(scope == FieldScope.PRODUCT
+                        ? "Field '" + field.label() + "' is filled in for each item, not for the product"
+                        : "Field '" + field.label() + "' is set on the product, not on each item");
             }
         }
         Map<String, String> validated = new LinkedHashMap<>();
-        for (CategoryField field : category.productFields()) {
+        for (CategoryField field : category.fields(scope)) {
             String raw = values.get(field.key());
             if (raw == null || raw.isBlank()) {
                 if (field.required()) {

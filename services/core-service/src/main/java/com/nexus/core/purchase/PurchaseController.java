@@ -1,6 +1,7 @@
 package com.nexus.core.purchase;
 
 import com.nexus.core.shared.BusinessRuleException;
+import com.nexus.core.shared.PaymentStatus;
 import com.nexus.core.web.MoneyJson;
 import java.time.LocalDate;
 import java.util.List;
@@ -35,12 +36,14 @@ class PurchaseController {
     }
 
     record PurchaseView(String id, Long supplierId, String supplierName, LocalDate purchaseDate, String currency,
-                        String notes, List<LineView> lines, MoneyJson total) {
+                        String notes, List<LineView> lines, MoneyJson total, MoneyJson paid, MoneyJson balance,
+                        PaymentStatus paymentStatus) {
 
         static PurchaseView of(Purchase purchase) {
             return new PurchaseView(purchase.publicId(), purchase.supplierId(), purchase.supplierName(),
                     purchase.purchaseDate(), purchase.currency(), purchase.notes(),
-                    purchase.lines().stream().map(LineView::of).toList(), MoneyJson.of(purchase.total()));
+                    purchase.lines().stream().map(LineView::of).toList(), MoneyJson.of(purchase.total()),
+                    MoneyJson.of(purchase.paid()), MoneyJson.of(purchase.balance()), purchase.paymentStatus());
         }
     }
 

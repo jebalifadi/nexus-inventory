@@ -1,6 +1,7 @@
 package com.nexus.core.sale;
 
 import com.nexus.core.shared.BusinessRuleException;
+import com.nexus.core.shared.PaymentStatus;
 import com.nexus.core.web.MoneyJson;
 import java.time.LocalDate;
 import java.util.List;
@@ -45,12 +46,13 @@ class SaleController {
     }
 
     record SaleView(String id, Long customerId, String customerName, Long locationId, LocalDate saleDate,
-                    String currency, String notes, List<LineView> lines, MoneyJson total, MoneyJson profit) {
+                    String currency, String notes, List<LineView> lines, MoneyJson total, MoneyJson profit,
+                    MoneyJson paid, MoneyJson balance, PaymentStatus paymentStatus) {
 
         static SaleView of(Sale s) {
             return new SaleView(s.publicId(), s.customerId(), s.customerName(), s.locationId(), s.saleDate(),
                     s.currency(), s.notes(), s.lines().stream().map(LineView::of).toList(), MoneyJson.of(s.total()),
-                    MoneyJson.of(s.profit()));
+                    MoneyJson.of(s.profit()), MoneyJson.of(s.paid()), MoneyJson.of(s.balance()), s.paymentStatus());
         }
     }
 

@@ -48,12 +48,15 @@ class StockRepository {
                 .list();
     }
 
-    long insertUnit(long productId, long locationId, UnitStatus status, Money cost, LocalDate receivedDate) {
+    long insertUnit(long productId, long locationId, UnitStatus status, Money cost, LocalDate receivedDate,
+                    Long purchaseLineId) {
         return jdbc.sql("""
-                        INSERT INTO inventory_units
-                            (product_id, location_id, status, unit_cost_amount, unit_cost_currency, received_date)
-                        VALUES (:productId, :locationId, :status, :amount, :currency, :receivedDate)
+                        INSERT INTO inventory_units (product_id, location_id, status, unit_cost_amount,
+                                                     unit_cost_currency, received_date, purchase_line_id)
+                        VALUES (:productId, :locationId, :status, :amount, :currency, :receivedDate,
+                                :purchaseLineId)
                         RETURNING id""")
+                .param("purchaseLineId", purchaseLineId)
                 .param("productId", productId)
                 .param("locationId", locationId)
                 .param("status", status.name())
@@ -110,13 +113,16 @@ class StockRepository {
                 .toList();
     }
 
-    long insertLot(long productId, long locationId, int quantity, Money unitCost, LocalDate receivedDate) {
+    long insertLot(long productId, long locationId, int quantity, Money unitCost, LocalDate receivedDate,
+                   Long purchaseLineId) {
         return jdbc.sql("""
                         INSERT INTO inventory_lots (product_id, location_id, quantity_received, quantity_remaining,
-                                                    unit_cost_amount, unit_cost_currency, received_date, status)
+                                                    unit_cost_amount, unit_cost_currency, received_date, status,
+                                                    purchase_line_id)
                         VALUES (:productId, :locationId, :quantity, :quantity, :amount, :currency,
-                                :receivedDate, 'IN_STOCK')
+                                :receivedDate, 'IN_STOCK', :purchaseLineId)
                         RETURNING id""")
+                .param("purchaseLineId", purchaseLineId)
                 .param("productId", productId)
                 .param("locationId", locationId)
                 .param("quantity", quantity)
@@ -190,6 +196,21 @@ class StockRepository {
 
     Optional<StockRef> findLotRef(String publicId) {
         return findRef("inventory_lots", publicId);
+    }
+
+    /** IDs of the units a purchase line created, deleted ones included, because history stays. */
+    List<String> findUnitIdsByPurchaseLine(long purchaseLineId) {
+        return jdbc.sql("SELECT public_id FROM inventory_units WHERE purchase_line_id = :id ORDER BY id")
+                .param("id", purchaseLineId)
+                .query(String.class)
+                .list();
+    }
+
+    Optional<String> findLotIdByPurchaseLine(long purchaseLineId) {
+        return jdbc.sql("SELECT public_id FROM inventory_lots WHERE purchase_line_id = :id")
+                .param("id", purchaseLineId)
+                .query(String.class)
+                .optional();
     }
 
     long countItemsHeldByProduct(long productId) {

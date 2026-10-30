@@ -40,6 +40,11 @@ public record Money(BigDecimal amount, Currency currency) {
         return new Money(amount.subtract(other.amount), currency);
     }
 
+    /** The price of several identical pieces, for example 10 pairs at 35.50 EUR. */
+    public Money times(int quantity) {
+        return new Money(amount.multiply(BigDecimal.valueOf(quantity)), currency);
+    }
+
     public boolean isNegative() {
         return amount.signum() < 0;
     }

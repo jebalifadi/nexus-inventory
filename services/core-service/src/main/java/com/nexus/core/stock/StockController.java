@@ -6,11 +6,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -86,6 +88,18 @@ class StockController {
         return stock.listLocations();
     }
 
+    @DeleteMapping("/locations/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteLocation(@PathVariable("id") long id,
+                        @RequestParam(name = "reason", required = false) String reason) {
+        stock.deleteLocation(id, reason);
+    }
+
+    @PostMapping("/locations/{id}/restore")
+    Location restoreLocation(@PathVariable("id") long id) {
+        return stock.restoreLocation(id);
+    }
+
     @PostMapping("/units")
     @ResponseStatus(HttpStatus.CREATED)
     UnitView receiveUnit(@RequestBody ReceiveUnit request) {
@@ -109,6 +123,18 @@ class StockController {
         return UnitView.of(stock.changeUnitStatus(id, request.status()));
     }
 
+    @DeleteMapping("/units/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteUnit(@PathVariable("id") String id,
+                    @RequestParam(name = "reason", required = false) String reason) {
+        stock.deleteUnit(id, reason);
+    }
+
+    @PostMapping("/units/{id}/restore")
+    UnitView restoreUnit(@PathVariable("id") String id) {
+        return UnitView.of(stock.restoreUnit(id));
+    }
+
     @PostMapping("/lots")
     @ResponseStatus(HttpStatus.CREATED)
     LotView receiveLot(@RequestBody ReceiveLot request) {
@@ -128,6 +154,18 @@ class StockController {
     @GetMapping("/lots/{id}")
     LotView getLot(@PathVariable("id") String id) {
         return LotView.of(stock.getLot(id));
+    }
+
+    @DeleteMapping("/lots/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteLot(@PathVariable("id") String id,
+                   @RequestParam(name = "reason", required = false) String reason) {
+        stock.deleteLot(id, reason);
+    }
+
+    @PostMapping("/lots/{id}/restore")
+    LotView restoreLot(@PathVariable("id") String id) {
+        return LotView.of(stock.restoreLot(id));
     }
 
     @GetMapping("/stock")

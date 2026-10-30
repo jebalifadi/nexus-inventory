@@ -7,6 +7,8 @@ import com.nexus.core.catalog.TrackingMode;
 import com.nexus.core.money.Money;
 import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shared.NotFoundException;
+import com.nexus.core.trash.TrashRepository;
+import com.nexus.core.trash.TrashType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -19,10 +21,12 @@ public class StockService {
 
     private final StockRepository repository;
     private final CatalogService catalog;
+    private final TrashRepository trash;
 
-    StockService(StockRepository repository, CatalogService catalog) {
+    StockService(StockRepository repository, CatalogService catalog, TrashRepository trash) {
         this.repository = repository;
         this.catalog = catalog;
+        this.trash = trash;
     }
 
     @Transactional
@@ -36,7 +40,8 @@ public class StockService {
 
     @Transactional(readOnly = true)
     public Location getLocation(long id) {
-        return repository.findLocation(id).orElseThrow(() -> new NotFoundException("Location " + id + " not found"));
+        return repository.findLocation(id)
+                .orElseThrow(() -> trash.notFound(TrashType.LOCATION, id, "Location " + id));
     }
 
     @Transactional(readOnly = true)
@@ -85,8 +90,7 @@ public class StockService {
         if (next == null) {
             throw new BusinessRuleException("New status is required");
         }
-        InventoryUnit unit = repository.lockUnitByPublicId(publicId)
-                .orElseThrow(() -> new NotFoundException("Unit " + publicId + " not found"));
+        InventoryUnit unit = repository.lockUnitByPublicId(publicId).orElseThrow(() -> unitNotFound(publicId));
         if (!unit.status().canMoveTo(next)) {
             throw new BusinessRuleException(
                     "Unit " + publicId + " cannot go from " + unit.status() + " to " + next);
@@ -98,8 +102,7 @@ public class StockService {
 
     @Transactional(readOnly = true)
     public InventoryUnit getUnit(String publicId) {
-        return repository.findUnitByPublicId(publicId)
-                .orElseThrow(() -> new NotFoundException("Unit " + publicId + " not found"));
+        return repository.findUnitByPublicId(publicId).orElseThrow(() -> unitNotFound(publicId));
     }
 
     @Transactional(readOnly = true)
@@ -109,8 +112,7 @@ public class StockService {
 
     @Transactional(readOnly = true)
     public InventoryLot getLot(String publicId) {
-        return repository.findLotByPublicId(publicId)
-                .orElseThrow(() -> new NotFoundException("Lot " + publicId + " not found"));
+        return repository.findLotByPublicId(publicId).orElseThrow(() -> lotNotFound(publicId));
     }
 
     @Transactional(readOnly = true)
@@ -122,6 +124,85 @@ public class StockService {
     @Transactional(readOnly = true)
     public List<StockLevel> stockLevels() {
         return repository.findStockLevels();
+    }
+
+    /** Soft deletes a location. Only allowed when it no longer holds any items. */
+    @Transactional
+    public void deleteLocation(long id, String reason) {
+        Location location = getLocation(id);
+        long held = repository.countItemsHeldByLocation(id);
+        if (held > 0) {
+            throw new BusinessRuleException("Location '" + location.name() + "' still holds " + held
+                    + " item(s): move, sell or delete them first");
+        }
+        trash.markDeleted(TrashType.LOCATION, id, reason);
+    }
+
+    @Transactional
+    public Location restoreLocation(long id) {
+        trash.requireDeleted(TrashType.LOCATION, id, "Location " + id);
+        trash.restore(TrashType.LOCATION, id);
+        return getLocation(id);
+    }
+
+    /** Soft deletes a unit. A sold unit belongs to a sale and can never be deleted. */
+    @Transactional
+    public void deleteUnit(String publicId, String reason) {
+        InventoryUnit unit = repository.lockUnitByPublicId(publicId).orElseThrow(() -> unitNotFound(publicId));
+        if (unit.status() == UnitStatus.SOLD || unit.status() == UnitStatus.CLOSED) {
+            throw new BusinessRuleException("Unit " + publicId + " is sold and cannot be deleted");
+        }
+        trash.markDeleted(TrashType.UNIT, unit.id(), reason);
+    }
+
+    @Transactional
+    public InventoryUnit restoreUnit(String publicId) {
+        StockRepository.StockRef ref = repository.findUnitRef(publicId)
+                .orElseThrow(() -> new NotFoundException("Unit " + publicId + " not found"));
+        requireRestorable("Unit " + publicId, ref);
+        trash.restore(TrashType.UNIT, ref.id());
+        return getUnit(publicId);
+    }
+
+    /** Soft deletes a lot. A lot that already sold some of its goods can never be deleted. */
+    @Transactional
+    public void deleteLot(String publicId, String reason) {
+        InventoryLot lot = repository.lockLotByPublicId(publicId).orElseThrow(() -> lotNotFound(publicId));
+        if (lot.quantityRemaining() < lot.quantityReceived()) {
+            throw new BusinessRuleException("Lot " + publicId + " has sales and cannot be deleted");
+        }
+        trash.markDeleted(TrashType.LOT, lot.id(), reason);
+    }
+
+    @Transactional
+    public InventoryLot restoreLot(String publicId) {
+        StockRepository.StockRef ref = repository.findLotRef(publicId)
+                .orElseThrow(() -> new NotFoundException("Lot " + publicId + " not found"));
+        requireRestorable("Lot " + publicId, ref);
+        trash.restore(TrashType.LOT, ref.id());
+        return getLot(publicId);
+    }
+
+    private void requireRestorable(String what, StockRepository.StockRef ref) {
+        if (!ref.deleted()) {
+            throw new BusinessRuleException(what + " is not deleted");
+        }
+        if (trash.isDeleted(TrashType.PRODUCT, ref.productId())) {
+            throw new BusinessRuleException(what + " belongs to a deleted product: restore product "
+                    + ref.productId() + " first");
+        }
+        if (trash.isDeleted(TrashType.LOCATION, ref.locationId())) {
+            throw new BusinessRuleException(what + " is in a deleted location: restore location "
+                    + ref.locationId() + " first");
+        }
+    }
+
+    private NotFoundException unitNotFound(String publicId) {
+        return trash.notFoundByPublicId(TrashType.UNIT, publicId, "Unit " + publicId);
+    }
+
+    private NotFoundException lotNotFound(String publicId) {
+        return trash.notFoundByPublicId(TrashType.LOT, publicId, "Lot " + publicId);
     }
 
     private static void requireTrackingMode(Category category, TrackingMode expected) {

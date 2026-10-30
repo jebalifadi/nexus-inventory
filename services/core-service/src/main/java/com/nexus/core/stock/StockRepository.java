@@ -36,14 +36,14 @@ class StockRepository {
     }
 
     Optional<Location> findLocation(long id) {
-        return jdbc.sql("SELECT id, name, country FROM locations WHERE id = :id")
+        return jdbc.sql("SELECT id, name, country FROM locations WHERE id = :id AND deleted_at IS NULL")
                 .param("id", id)
                 .query((rs, n) -> new Location(rs.getLong("id"), rs.getString("name"), rs.getString("country")))
                 .optional();
     }
 
     List<Location> findLocations() {
-        return jdbc.sql("SELECT id, name, country FROM locations ORDER BY name")
+        return jdbc.sql("SELECT id, name, country FROM locations WHERE deleted_at IS NULL ORDER BY name")
                 .query((rs, n) -> new Location(rs.getLong("id"), rs.getString("name"), rs.getString("country")))
                 .list();
     }
@@ -88,21 +88,21 @@ class StockRepository {
     }
 
     Optional<InventoryUnit> findUnitById(long id) {
-        return findUnit("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE id = :value", id);
+        return findUnit("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE id = :value AND deleted_at IS NULL", id);
     }
 
     Optional<InventoryUnit> findUnitByPublicId(String publicId) {
-        return findUnit("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE public_id = :value", publicId);
+        return findUnit("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE public_id = :value AND deleted_at IS NULL", publicId);
     }
 
     /** Locks the unit row until the transaction ends, so two requests cannot change it at once. */
     Optional<InventoryUnit> lockUnitByPublicId(String publicId) {
-        return findUnit("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE public_id = :value FOR UPDATE",
+        return findUnit("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE public_id = :value AND deleted_at IS NULL FOR UPDATE",
                 publicId);
     }
 
     List<InventoryUnit> findUnits() {
-        return jdbc.sql("SELECT " + UNIT_COLUMNS + " FROM inventory_units ORDER BY id")
+        return jdbc.sql("SELECT " + UNIT_COLUMNS + " FROM inventory_units WHERE deleted_at IS NULL ORDER BY id")
                 .query((rs, n) -> mapUnit(rs))
                 .list()
                 .stream()
@@ -128,21 +128,22 @@ class StockRepository {
     }
 
     Optional<InventoryLot> findLotById(long id) {
-        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots WHERE id = :id")
+        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots WHERE id = :id AND deleted_at IS NULL")
                 .param("id", id)
                 .query((rs, n) -> mapLot(rs))
                 .optional();
     }
 
     Optional<InventoryLot> findLotByPublicId(String publicId) {
-        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots WHERE public_id = :publicId")
+        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots WHERE public_id = :publicId "
+                        + "AND deleted_at IS NULL")
                 .param("publicId", publicId)
                 .query((rs, n) -> mapLot(rs))
                 .optional();
     }
 
     List<InventoryLot> findLots() {
-        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots ORDER BY id")
+        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots WHERE deleted_at IS NULL ORDER BY id")
                 .query((rs, n) -> mapLot(rs))
                 .list();
     }
@@ -154,11 +155,11 @@ class StockRepository {
                         FROM (
                             SELECT product_id, location_id, 1 AS quantity
                             FROM inventory_units
-                            WHERE status IN ('IN_INVENTORY', 'LISTED', 'RESERVED')
+                            WHERE status IN ('IN_INVENTORY', 'LISTED', 'RESERVED') AND deleted_at IS NULL
                             UNION ALL
                             SELECT product_id, location_id, quantity_remaining
                             FROM inventory_lots
-                            WHERE status = 'IN_STOCK'
+                            WHERE status = 'IN_STOCK' AND deleted_at IS NULL
                         ) s
                         JOIN products p ON p.id = s.product_id
                         JOIN locations l ON l.id = s.location_id
@@ -168,6 +169,55 @@ class StockRepository {
                 .query((rs, n) -> new StockLevel(rs.getLong("product_id"), rs.getString("product_name"),
                         rs.getLong("location_id"), rs.getString("location_name"), rs.getLong("quantity")))
                 .list();
+    }
+
+    /** Locks the lot row until the transaction ends. */
+    Optional<InventoryLot> lockLotByPublicId(String publicId) {
+        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots WHERE public_id = :publicId "
+                        + "AND deleted_at IS NULL FOR UPDATE")
+                .param("publicId", publicId)
+                .query((rs, n) -> mapLot(rs))
+                .optional();
+    }
+
+    /** Where a unit or lot belongs, also when it is deleted. Used to check it can be restored. */
+    record StockRef(long id, long productId, long locationId, boolean deleted) {
+    }
+
+    Optional<StockRef> findUnitRef(String publicId) {
+        return findRef("inventory_units", publicId);
+    }
+
+    Optional<StockRef> findLotRef(String publicId) {
+        return findRef("inventory_lots", publicId);
+    }
+
+    long countItemsHeldByProduct(long productId) {
+        return countItemsHeld("product_id", productId);
+    }
+
+    long countItemsHeldByLocation(long locationId) {
+        return countItemsHeld("location_id", locationId);
+    }
+
+    /** Items still owned and not sold: units not sold, closed or cancelled, plus what is left in lots. */
+    private long countItemsHeld(String column, long id) {
+        return jdbc.sql("SELECT (SELECT count(*) FROM inventory_units WHERE " + column + " = :id "
+                        + "AND deleted_at IS NULL AND status NOT IN ('SOLD', 'CLOSED', 'CANCELLED')) "
+                        + "+ (SELECT coalesce(sum(quantity_remaining), 0) FROM inventory_lots WHERE " + column
+                        + " = :id AND deleted_at IS NULL AND status <> 'DEPLETED')")
+                .param("id", id)
+                .query(Long.class)
+                .single();
+    }
+
+    private Optional<StockRef> findRef(String table, String publicId) {
+        return jdbc.sql("SELECT id, product_id, location_id, deleted_at IS NOT NULL AS deleted FROM " + table
+                        + " WHERE public_id = :publicId")
+                .param("publicId", publicId)
+                .query((rs, n) -> new StockRef(rs.getLong("id"), rs.getLong("product_id"),
+                        rs.getLong("location_id"), rs.getBoolean("deleted")))
+                .optional();
     }
 
     private Optional<InventoryUnit> findUnit(String sql, Object value) {

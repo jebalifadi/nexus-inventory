@@ -122,6 +122,27 @@ class ShipmentRepository {
                 .list();
     }
 
+    /** The shipping shares a unit or lot received, with how many pieces each share covered. */
+    record ShippingShare(BigDecimal allocated, int quantity, String currency) {
+    }
+
+    List<ShippingShare> findSharesOfUnit(long unitId) {
+        return findShares("c.unit_id", unitId);
+    }
+
+    List<ShippingShare> findSharesOfLot(long lotId) {
+        return findShares("c.lot_id", lotId);
+    }
+
+    private List<ShippingShare> findShares(String column, long id) {
+        return jdbc.sql("SELECT c.allocated_cost_amount, c.quantity, s.cost_currency FROM shipment_contents c "
+                        + "JOIN shipments s ON s.id = c.shipment_id WHERE " + column + " = :id ORDER BY c.id")
+                .param("id", id)
+                .query((rs, n) -> new ShippingShare(rs.getBigDecimal("allocated_cost_amount"), rs.getInt("quantity"),
+                        rs.getString("cost_currency").trim()))
+                .list();
+    }
+
     private static ShipmentRow mapShipment(ResultSet rs) throws SQLException {
         return new ShipmentRow(
                 rs.getLong("id"),

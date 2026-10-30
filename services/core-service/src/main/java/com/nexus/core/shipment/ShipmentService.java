@@ -118,6 +118,25 @@ public class ShipmentService {
         return repository.findAll().stream().map(this::assemble).toList();
     }
 
+    /** Shipping cost carried by one unit, one entry per shipment it travelled in. */
+    @Transactional(readOnly = true)
+    public List<Money> shippingCostPerPieceOfUnit(long unitId) {
+        return perPiece(repository.findSharesOfUnit(unitId));
+    }
+
+    /** Shipping cost carried by one piece of a lot, one entry per shipment it travelled in. */
+    @Transactional(readOnly = true)
+    public List<Money> shippingCostPerPieceOfLot(long lotId) {
+        return perPiece(repository.findSharesOfLot(lotId));
+    }
+
+    private static List<Money> perPiece(List<ShipmentRepository.ShippingShare> shares) {
+        return shares.stream()
+                .map(share -> new Money(share.allocated().divide(BigDecimal.valueOf(share.quantity()), 10,
+                        RoundingMode.HALF_EVEN), java.util.Currency.getInstance(share.currency())))
+                .toList();
+    }
+
     private static List<Money> split(Money cost, AllocationMethod method, List<Packed> packed) {
         List<BigDecimal> weights;
         if (method == AllocationMethod.BY_QUANTITY) {

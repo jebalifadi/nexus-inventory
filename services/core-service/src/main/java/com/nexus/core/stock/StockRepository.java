@@ -99,6 +99,29 @@ class StockRepository {
                 .update();
     }
 
+    /** Lots of a product at a location that still hold pieces, oldest first, locked until the sale is saved. */
+    List<InventoryLot> lockLotsForSale(long productId, long locationId) {
+        return jdbc.sql("SELECT " + LOT_COLUMNS + " FROM inventory_lots "
+                        + "WHERE product_id = :productId AND location_id = :locationId AND status = 'IN_STOCK' "
+                        + "AND quantity_remaining > 0 AND deleted_at IS NULL "
+                        + "ORDER BY received_date, id FOR UPDATE")
+                .param("productId", productId)
+                .param("locationId", locationId)
+                .query((rs, n) -> mapLot(rs))
+                .list();
+    }
+
+    void takeFromLot(long lotId, int quantity) {
+        jdbc.sql("""
+                        UPDATE inventory_lots
+                        SET quantity_remaining = quantity_remaining - :quantity,
+                            status = CASE WHEN quantity_remaining - :quantity = 0 THEN 'DEPLETED' ELSE status END
+                        WHERE id = :id""")
+                .param("quantity", quantity)
+                .param("id", lotId)
+                .update();
+    }
+
     void updateUnitStatus(long unitId, UnitStatus status) {
         jdbc.sql("UPDATE inventory_units SET status = :status WHERE id = :id")
                 .param("status", status.name())

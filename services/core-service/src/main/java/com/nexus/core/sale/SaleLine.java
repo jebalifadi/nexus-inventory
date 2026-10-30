@@ -17,6 +17,7 @@ public record SaleLine(
         Long productId,
         String unitId,
         int quantity,
+        int returnedQuantity,
         Money unitPrice,
         Money lineTotal,
         Money cost,

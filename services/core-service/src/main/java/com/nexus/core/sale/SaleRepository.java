@@ -19,11 +19,12 @@ class SaleRepository {
 
     record LineRow(long id, int lineNo, long productId, String unitPublicId, int quantity, BigDecimal unitPrice,
                    BigDecimal costAmount, String costCurrency, int warrantyDays, String warrantyTerms,
-                   Long unitId, BigDecimal unitCostAmount, String unitCostCurrency) {
+                   Long unitId, BigDecimal unitCostAmount, String unitCostCurrency, int returnedQuantity) {
     }
 
     record AllocationRow(String lotPublicId, int quantity, BigDecimal unitCostAmount, String unitCostCurrency,
-                         long lotId, BigDecimal lotCostAmount, String lotCostCurrency) {
+                         long lotId, BigDecimal lotCostAmount, String lotCostCurrency, long id,
+                         int returnedQuantity) {
     }
 
     private static final String CUSTOMER_COLUMNS = "id, name, phone, email, country, notes";
@@ -137,38 +138,44 @@ class SaleRepository {
                 .list();
     }
 
+    private static final String LINE_QUERY = """
+            SELECT l.id, l.line_no, l.product_id, u.public_id AS unit_public_id, l.quantity,
+                   l.unit_price_amount, l.cost_amount, l.cost_currency, l.warranty_days, l.warranty_terms,
+                   u.id AS unit_id, u.unit_cost_amount, u.unit_cost_currency, l.returned_quantity
+            FROM sale_lines l
+            LEFT JOIN inventory_units u ON u.id = l.unit_id
+            """;
+
     List<LineRow> findLines(long saleId) {
-        return jdbc.sql("""
-                        SELECT l.id, l.line_no, l.product_id, u.public_id AS unit_public_id, l.quantity,
-                               l.unit_price_amount, l.cost_amount, l.cost_currency, l.warranty_days, l.warranty_terms,
-                               u.id AS unit_id, u.unit_cost_amount, u.unit_cost_currency
-                        FROM sale_lines l
-                        LEFT JOIN inventory_units u ON u.id = l.unit_id
-                        WHERE l.sale_id = :saleId
-                        ORDER BY l.line_no""")
+        return jdbc.sql(LINE_QUERY + "WHERE l.sale_id = :saleId ORDER BY l.line_no")
                 .param("saleId", saleId)
-                .query((rs, n) -> new LineRow(
-                        rs.getLong("id"),
-                        rs.getInt("line_no"),
-                        rs.getLong("product_id"),
-                        rs.getString("unit_public_id"),
-                        rs.getInt("quantity"),
-                        rs.getBigDecimal("unit_price_amount"),
-                        rs.getBigDecimal("cost_amount"),
-                        trim(rs.getString("cost_currency")),
-                        rs.getInt("warranty_days"),
-                        rs.getString("warranty_terms"),
-                        rs.getObject("unit_id", Long.class),
-                        rs.getBigDecimal("unit_cost_amount"),
-                        trim(rs.getString("unit_cost_currency"))))
+                .query((rs, n) -> mapLine(rs))
                 .list();
+    }
+
+    /** Locks one line until the transaction ends, so the same pieces cannot be returned twice at once. */
+    Optional<LineRow> lockLine(long saleId, int lineNo) {
+        return jdbc.sql(LINE_QUERY + "WHERE l.sale_id = :saleId AND l.line_no = :lineNo FOR UPDATE OF l")
+                .param("saleId", saleId)
+                .param("lineNo", lineNo)
+                .query((rs, n) -> mapLine(rs))
+                .optional();
+    }
+
+    void markReturned(long lineId, int returnedQuantity, String status) {
+        jdbc.sql("UPDATE sale_lines SET returned_quantity = :returned, status = :status WHERE id = :id")
+                .param("returned", returnedQuantity)
+                .param("status", status)
+                .param("id", lineId)
+                .update();
     }
 
     List<AllocationRow> findAllocations(long saleLineId) {
         return jdbc.sql("""
                         SELECT l.public_id, a.quantity, a.unit_cost_amount, a.unit_cost_currency,
                                l.id AS lot_id, l.unit_cost_amount AS lot_cost_amount,
-                               l.unit_cost_currency AS lot_cost_currency
+                               l.unit_cost_currency AS lot_cost_currency, a.id AS allocation_id,
+                               a.returned_quantity
                         FROM stock_allocations a
                         JOIN inventory_lots l ON l.id = a.lot_id
                         WHERE a.sale_line_id = :saleLineId
@@ -177,8 +184,34 @@ class SaleRepository {
                 .query((rs, n) -> new AllocationRow(rs.getString("public_id"), rs.getInt("quantity"),
                         rs.getBigDecimal("unit_cost_amount"), trim(rs.getString("unit_cost_currency")),
                         rs.getLong("lot_id"), rs.getBigDecimal("lot_cost_amount"),
-                        trim(rs.getString("lot_cost_currency"))))
+                        trim(rs.getString("lot_cost_currency")), rs.getLong("allocation_id"),
+                        rs.getInt("returned_quantity")))
                 .list();
+    }
+
+    void returnAllocation(long allocationId, int quantity) {
+        jdbc.sql("UPDATE stock_allocations SET returned_quantity = returned_quantity + :quantity WHERE id = :id")
+                .param("quantity", quantity)
+                .param("id", allocationId)
+                .update();
+    }
+
+    private static LineRow mapLine(ResultSet rs) throws SQLException {
+        return new LineRow(
+                rs.getLong("id"),
+                rs.getInt("line_no"),
+                rs.getLong("product_id"),
+                rs.getString("unit_public_id"),
+                rs.getInt("quantity"),
+                rs.getBigDecimal("unit_price_amount"),
+                rs.getBigDecimal("cost_amount"),
+                trim(rs.getString("cost_currency")),
+                rs.getInt("warranty_days"),
+                rs.getString("warranty_terms"),
+                rs.getObject("unit_id", Long.class),
+                rs.getBigDecimal("unit_cost_amount"),
+                trim(rs.getString("unit_cost_currency")),
+                rs.getInt("returned_quantity"));
     }
 
     private static Customer mapCustomer(ResultSet rs) throws SQLException {

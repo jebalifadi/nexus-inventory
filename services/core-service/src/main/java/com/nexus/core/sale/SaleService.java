@@ -101,6 +101,41 @@ public class SaleService {
         return assemble(repository.findSale(saleId).orElseThrow());
     }
 
+    /**
+     * Takes pieces of a sale line back into stock, for a refund or a return. A unit goes back to
+     * inventory; lot pieces go back into the lots they came from, newest allocation first. The sale
+     * itself stays in history. Returns the sale value of what came back.
+     */
+    @Transactional
+    public Money returnGoods(String salePublicId, int lineNo, int quantity) {
+        SaleRepository.SaleRow sale = repository.findSaleByPublicId(salePublicId)
+                .orElseThrow(() -> new NotFoundException("Sale " + salePublicId + " not found"));
+        SaleRepository.LineRow line = repository.lockLine(sale.id(), lineNo)
+                .orElseThrow(() -> new NotFoundException("Sale " + salePublicId + " has no line " + lineNo));
+        int open = line.quantity() - line.returnedQuantity();
+        if (quantity < 1 || quantity > open) {
+            throw new BusinessRuleException("Only " + open + " piece(s) of line " + lineNo + " can still be returned");
+        }
+        if (line.unitId() != null) {
+            stock.returnUnit(line.unitId());
+        } else {
+            List<SaleRepository.AllocationRow> allocations = new ArrayList<>(repository.findAllocations(line.id()));
+            java.util.Collections.reverse(allocations);
+            int left = quantity;
+            for (SaleRepository.AllocationRow allocation : allocations) {
+                int back = Math.min(allocation.quantity() - allocation.returnedQuantity(), left);
+                if (back > 0) {
+                    stock.returnToLot(allocation.lotId(), back);
+                    repository.returnAllocation(allocation.id(), back);
+                    left -= back;
+                }
+            }
+        }
+        int returned = line.returnedQuantity() + quantity;
+        repository.markReturned(line.id(), returned, returned == line.quantity() ? "RETURNED" : "ACTIVE");
+        return Money.of(line.unitPrice().toPlainString(), sale.currency()).times(quantity);
+    }
+
     @Transactional(readOnly = true)
     public Sale getSale(String publicId) {
         return repository.findSaleByPublicId(publicId)
@@ -189,9 +224,10 @@ public class SaleService {
     }
 
     /**
-     * Builds the sale with its profit. Every cost (purchase, shipping, repairs, fees) is converted into
-     * the sale currency at the rate valid on the sale day. If one rate is missing, the profit is unknown
-     * and the reason says which rate to add: Nexus never guesses.
+     * Builds the sale with its profit. Every cost (purchase, shipping, repairs, fees, warranty) is
+     * converted into the sale currency at the rate valid on the sale day. Returned pieces bring
+     * neither revenue nor cost. If one rate is missing, the profit is unknown and the reason says
+     * which rate to add: Nexus never guesses.
      */
     private Sale assemble(SaleRepository.SaleRow row) {
         String currency = row.currency();
@@ -199,15 +235,17 @@ public class SaleService {
         Set<String> missingRates = new LinkedHashSet<>();
         List<SaleLine> lines = new ArrayList<>();
         Money total = Money.zero(currency);
-        Money goodsCost = Money.zero(currency);
-        boolean goodsCostKnown = true;
+        Money returns = Money.zero(currency);
+        Money linesProfit = Money.zero(currency);
+        boolean linesProfitKnown = true;
 
         for (SaleRepository.LineRow line : repository.findLines(row.id())) {
             Money unitPrice = Money.of(line.unitPrice().toPlainString(), currency);
             Money lineTotal = unitPrice.times(line.quantity());
+            Money returnedValue = unitPrice.times(line.returnedQuantity());
             List<SaleRepository.AllocationRow> allocationRows = repository.findAllocations(line.id());
             Money cost = inCurrency(costParts(line, allocationRows), currency, day, missingRates).orElse(null);
-            Money lineProfit = cost == null ? null : lineTotal.minus(cost);
+            Money lineProfit = cost == null ? null : lineTotal.minus(returnedValue).minus(cost);
             List<SaleAllocation> allocations = allocationRows.stream()
                     .map(a -> new SaleAllocation(a.lotPublicId(), a.quantity(), a.unitCostAmount() == null ? null
                             : Money.of(a.unitCostAmount().toPlainString(), a.unitCostCurrency())))
@@ -215,40 +253,51 @@ public class SaleService {
             LocalDate warrantyEnd = line.warrantyDays() == 0 ? null : day.plusDays(line.warrantyDays());
 
             lines.add(new SaleLine(line.id(), line.lineNo(), line.productId(), line.unitPublicId(), line.quantity(),
-                    unitPrice, lineTotal, cost, lineProfit, allocations, line.warrantyDays(), warrantyEnd,
-                    line.warrantyTerms()));
+                    line.returnedQuantity(), unitPrice, lineTotal, cost, lineProfit, allocations, line.warrantyDays(),
+                    warrantyEnd, line.warrantyTerms()));
             total = total.plus(lineTotal);
-            if (cost == null) {
-                goodsCostKnown = false;
+            returns = returns.plus(returnedValue);
+            if (lineProfit == null) {
+                linesProfitKnown = false;
             } else {
-                goodsCost = goodsCost.plus(cost);
+                linesProfit = linesProfit.plus(lineProfit);
             }
         }
 
         Optional<Money> saleExpenses = inCurrency(extraCosts.forSale(row.id()), currency, day, missingRates);
-        Money profit = goodsCostKnown && saleExpenses.isPresent()
-                ? total.minus(goodsCost).minus(saleExpenses.get()) : null;
+        Money profit = linesProfitKnown && saleExpenses.isPresent() ? linesProfit.minus(saleExpenses.get()) : null;
         Money paid = Money.of(payments.paidForSale(row.id()).toPlainString(), currency);
+        Money netTotal = total.minus(returns);
         return new Sale(row.id(), row.publicId(), row.customerId(), row.customerName(), row.locationId(), day,
-                currency, row.notes(), lines, total, saleExpenses.orElse(null), profit,
-                missingRates.isEmpty() ? null : String.join("; ", missingRates), paid, total.minus(paid),
-                PaymentStatus.of(total, paid));
+                currency, row.notes(), lines, total, returns, saleExpenses.orElse(null), profit,
+                missingRates.isEmpty() ? null : String.join("; ", missingRates), paid, netTotal.minus(paid),
+                PaymentStatus.of(netTotal, paid));
     }
 
-    /** What the goods of a line cost: purchase price, shipping and expenses on the unit (or per lot piece). */
+    /**
+     * What the goods still sold on a line cost: purchase price, shipping and expenses on the unit (or
+     * per lot piece). Pieces that came back cost nothing here: they are in stock again.
+     */
     private List<Money> costParts(SaleRepository.LineRow line, List<SaleRepository.AllocationRow> allocations) {
         List<Money> parts = new ArrayList<>();
         if (line.unitId() != null) {
+            if (line.returnedQuantity() > 0) {
+                return parts;
+            }
             parts.add(Money.of(line.unitCostAmount().toPlainString(), line.unitCostCurrency()));
             parts.addAll(shipments.shippingCostPerPieceOfUnit(line.unitId()));
             parts.addAll(extraCosts.forUnit(line.unitId()));
             return parts;
         }
         for (SaleRepository.AllocationRow allocation : allocations) {
+            int kept = allocation.quantity() - allocation.returnedQuantity();
+            if (kept == 0) {
+                continue;
+            }
             Money piece = Money.of(allocation.lotCostAmount().toPlainString(), allocation.lotCostCurrency());
-            parts.add(piece.times(allocation.quantity()));
+            parts.add(piece.times(kept));
             for (Money shipping : shipments.shippingCostPerPieceOfLot(allocation.lotId())) {
-                parts.add(shipping.times(allocation.quantity()));
+                parts.add(shipping.times(kept));
             }
         }
         return parts;

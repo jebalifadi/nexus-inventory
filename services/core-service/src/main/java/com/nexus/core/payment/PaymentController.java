@@ -21,11 +21,11 @@ class PaymentController {
     record NewPayment(MoneyJson amount, LocalDate paymentDate, PaymentMethod method, String notes) {
     }
 
-    record PaymentView(String id, PaymentDirection direction, String reference, MoneyJson amount,
+    record PaymentView(String id, PaymentKind kind, PaymentDirection direction, String reference, MoneyJson amount,
                        LocalDate paymentDate, PaymentMethod method, String notes) {
 
         static PaymentView of(Payment p) {
-            return new PaymentView(p.publicId(), p.direction(), p.reference(), MoneyJson.of(p.amount()),
+            return new PaymentView(p.publicId(), p.kind(), p.direction(), p.reference(), MoneyJson.of(p.amount()),
                     p.paymentDate(), p.method(), p.notes());
         }
     }

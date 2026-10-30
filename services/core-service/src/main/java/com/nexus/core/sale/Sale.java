@@ -17,6 +17,7 @@ public record Sale(
         String notes,
         List<SaleLine> lines,
         Money total,
+        Money returns,
         Money saleExpenses,
         Money profit,
         String profitUnknownReason,

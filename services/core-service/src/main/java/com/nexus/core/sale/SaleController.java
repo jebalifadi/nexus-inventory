@@ -33,12 +33,14 @@ class SaleController {
         }
     }
 
-    record LineView(int lineNo, Long productId, String unitId, int quantity, MoneyJson unitPrice, MoneyJson lineTotal,
+    record LineView(int lineNo, Long productId, String unitId, int quantity, int returnedQuantity, MoneyJson unitPrice,
+                    MoneyJson lineTotal,
                     MoneyJson cost, MoneyJson profit, List<AllocationView> allocations, int warrantyDays,
                     LocalDate warrantyEndDate, String warrantyTerms) {
 
         static LineView of(SaleLine l) {
-            return new LineView(l.lineNo(), l.productId(), l.unitId(), l.quantity(), MoneyJson.of(l.unitPrice()),
+            return new LineView(l.lineNo(), l.productId(), l.unitId(), l.quantity(), l.returnedQuantity(),
+                    MoneyJson.of(l.unitPrice()),
                     MoneyJson.of(l.lineTotal()), MoneyJson.of(l.cost()), MoneyJson.of(l.profit()),
                     l.allocations().stream().map(AllocationView::of).toList(), l.warrantyDays(),
                     l.warrantyEndDate(), l.warrantyTerms());
@@ -46,14 +48,16 @@ class SaleController {
     }
 
     record SaleView(String id, Long customerId, String customerName, Long locationId, LocalDate saleDate,
-                    String currency, String notes, List<LineView> lines, MoneyJson total, MoneyJson saleExpenses,
+                    String currency, String notes, List<LineView> lines, MoneyJson total, MoneyJson returns,
+                    MoneyJson saleExpenses,
                     MoneyJson profit, String profitUnknownReason, MoneyJson paid, MoneyJson balance,
                     PaymentStatus paymentStatus) {
 
         static SaleView of(Sale s) {
             return new SaleView(s.publicId(), s.customerId(), s.customerName(), s.locationId(), s.saleDate(),
                     s.currency(), s.notes(), s.lines().stream().map(LineView::of).toList(), MoneyJson.of(s.total()),
-                    MoneyJson.of(s.saleExpenses()), MoneyJson.of(s.profit()), s.profitUnknownReason(),
+                    MoneyJson.of(s.returns()), MoneyJson.of(s.saleExpenses()), MoneyJson.of(s.profit()),
+                    s.profitUnknownReason(),
                     MoneyJson.of(s.paid()), MoneyJson.of(s.balance()), s.paymentStatus());
         }
     }

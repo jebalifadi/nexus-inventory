@@ -1,0 +1,73 @@
+package com.nexus.core.catalog;
+
+import com.nexus.core.shared.BusinessRuleException;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/** REST API for categories and products. */
+@RestController
+@RequestMapping("/api/v1")
+class CatalogController {
+
+    record NewField(String label, FieldType type, FieldScope scope, boolean required, List<String> choices) {
+    }
+
+    record NewCategory(String name, TrackingMode trackingMode, List<NewField> fields) {
+    }
+
+    record NewProduct(Long categoryId, String sku, Map<String, String> attributes) {
+    }
+
+    private final CatalogService catalog;
+
+    CatalogController(CatalogService catalog) {
+        this.catalog = catalog;
+    }
+
+    @PostMapping("/categories")
+    @ResponseStatus(HttpStatus.CREATED)
+    Category createCategory(@RequestBody NewCategory request) {
+        List<FieldDefinition> fields = request.fields() == null ? List.of() : request.fields().stream()
+                .map(f -> new FieldDefinition(f.label(), f.type(), f.scope(), f.required(), f.choices()))
+                .toList();
+        return catalog.createCategory(request.name(), request.trackingMode(), fields);
+    }
+
+    @GetMapping("/categories")
+    List<Category> listCategories() {
+        return catalog.listCategories();
+    }
+
+    @GetMapping("/categories/{id}")
+    Category getCategory(@PathVariable("id") long id) {
+        return catalog.getCategory(id);
+    }
+
+    @PostMapping("/products")
+    @ResponseStatus(HttpStatus.CREATED)
+    Product createProduct(@RequestBody NewProduct request) {
+        if (request.categoryId() == null) {
+            throw new BusinessRuleException("categoryId is required");
+        }
+        return catalog.createProduct(request.categoryId(), request.sku(), request.attributes());
+    }
+
+    @GetMapping("/products")
+    List<Product> listProducts(@RequestParam(name = "categoryId", required = false) Long categoryId) {
+        return catalog.listProducts(categoryId);
+    }
+
+    @GetMapping("/products/{id}")
+    Product getProduct(@PathVariable("id") long id) {
+        return catalog.getProduct(id);
+    }
+}

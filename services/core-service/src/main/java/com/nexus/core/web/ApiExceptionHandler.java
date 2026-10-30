@@ -26,7 +26,7 @@ class ApiExceptionHandler {
     @ExceptionHandler(DuplicateKeyException.class)
     ProblemDetail handleDuplicate(DuplicateKeyException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
-                "This value already exists, for example a category name, location name or SKU");
+                "This value already exists, for example a name or a SKU");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

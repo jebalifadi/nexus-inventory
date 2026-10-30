@@ -12,6 +12,7 @@ import com.nexus.core.trash.TrashType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,13 @@ public class StockService {
     @Transactional
     public InventoryUnit receiveUnit(long productId, long locationId, Money unitCost, LocalDate receivedDate,
                                      Map<String, String> itemValues) {
+        return receiveUnit(productId, locationId, unitCost, receivedDate, itemValues, null);
+    }
+
+    /** Same as above, remembering the purchase line that bought the item. */
+    @Transactional
+    public InventoryUnit receiveUnit(long productId, long locationId, Money unitCost, LocalDate receivedDate,
+                                     Map<String, String> itemValues, Long purchaseLineId) {
         Product product = catalog.getProduct(productId);
         Category category = catalog.getCategory(product.categoryId());
         requireTrackingMode(category, TrackingMode.UNIT);
@@ -61,7 +69,7 @@ public class StockService {
         Map<String, String> values = catalog.validateItemAttributes(category, itemValues);
 
         long unitId = repository.insertUnit(productId, locationId, UnitStatus.IN_INVENTORY, unitCost,
-                receivedDate == null ? LocalDate.now() : receivedDate);
+                receivedDate == null ? LocalDate.now() : receivedDate, purchaseLineId);
         values.forEach((key, value) ->
                 repository.insertUnitAttribute(unitId, category.field(key).orElseThrow().id(), value));
         repository.insertStatusChange(unitId, null, UnitStatus.IN_INVENTORY);
@@ -72,6 +80,13 @@ public class StockService {
     @Transactional
     public InventoryLot receiveLot(long productId, long locationId, int quantity, Money unitCost,
                                    LocalDate receivedDate) {
+        return receiveLot(productId, locationId, quantity, unitCost, receivedDate, null);
+    }
+
+    /** Same as above, remembering the purchase line that bought the goods. */
+    @Transactional
+    public InventoryLot receiveLot(long productId, long locationId, int quantity, Money unitCost,
+                                   LocalDate receivedDate, Long purchaseLineId) {
         Product product = catalog.getProduct(productId);
         requireTrackingMode(catalog.getCategory(product.categoryId()), TrackingMode.LOT);
         getLocation(locationId);
@@ -80,7 +95,7 @@ public class StockService {
             throw new BusinessRuleException("Quantity must be at least 1");
         }
         long lotId = repository.insertLot(productId, locationId, quantity, unitCost,
-                receivedDate == null ? LocalDate.now() : receivedDate);
+                receivedDate == null ? LocalDate.now() : receivedDate, purchaseLineId);
         return repository.findLotById(lotId).orElseThrow();
     }
 
@@ -118,6 +133,16 @@ public class StockService {
     @Transactional(readOnly = true)
     public List<InventoryLot> listLots() {
         return repository.findLots();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> unitIdsOfPurchaseLine(long purchaseLineId) {
+        return repository.findUnitIdsByPurchaseLine(purchaseLineId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> lotIdOfPurchaseLine(long purchaseLineId) {
+        return repository.findLotIdByPurchaseLine(purchaseLineId);
     }
 
     /** Quantity in stock per product and location, units and lots together. */

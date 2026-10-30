@@ -135,6 +135,41 @@ public class StockService {
         return repository.findLots();
     }
 
+    /** Marks one unit as sold. It must be in stock at the location the sale is made from. */
+    @Transactional
+    public InventoryUnit sellUnit(String publicId, long locationId) {
+        InventoryUnit unit = repository.lockUnitByPublicId(publicId).orElseThrow(() -> unitNotFound(publicId));
+        if (!unit.status().canMoveTo(UnitStatus.SOLD)) {
+            throw new BusinessRuleException("Unit " + publicId + " is " + unit.status() + " and cannot be sold");
+        }
+        if (unit.locationId() != locationId) {
+            throw new BusinessRuleException("Unit " + publicId + " is not at location " + locationId);
+        }
+        repository.updateUnitStatus(unit.id(), UnitStatus.SOLD);
+        repository.insertStatusChange(unit.id(), unit.status(), UnitStatus.SOLD);
+        return repository.findUnitById(unit.id()).orElseThrow();
+    }
+
+    /** Takes a quantity of a product from its lots at a location, oldest lots first (FIFO). */
+    @Transactional
+    public List<LotTaken> takeFromLots(long productId, long locationId, int quantity) {
+        List<InventoryLot> lots = repository.lockLotsForSale(productId, locationId);
+        int available = lots.stream().mapToInt(InventoryLot::quantityRemaining).sum();
+        if (available < quantity) {
+            throw new BusinessRuleException("Only " + available + " in stock at this location, " + quantity + " asked");
+        }
+        List<FifoAllocator.Take> takes = FifoAllocator.allocate(lots.stream()
+                .map(lot -> new FifoAllocator.LotStock(lot.id(), lot.quantityRemaining()))
+                .toList(), quantity);
+        List<LotTaken> taken = new java.util.ArrayList<>();
+        for (FifoAllocator.Take take : takes) {
+            InventoryLot lot = lots.stream().filter(l -> l.id() == take.lotId()).findFirst().orElseThrow();
+            repository.takeFromLot(lot.id(), take.quantity());
+            taken.add(new LotTaken(lot, take.quantity()));
+        }
+        return taken;
+    }
+
     /** Takes a unit out of stock to put it in a shipment. */
     @Transactional
     public InventoryUnit sendUnit(String publicId, long fromLocationId) {

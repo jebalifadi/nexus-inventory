@@ -3,6 +3,7 @@ package com.nexus.core.sale;
 import com.nexus.core.catalog.CatalogService;
 import com.nexus.core.catalog.Product;
 import com.nexus.core.catalog.TrackingMode;
+import com.nexus.core.fx.ExchangeRateService;
 import com.nexus.core.money.Money;
 import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shared.NotFoundException;
@@ -13,7 +14,10 @@ import com.nexus.core.stock.LotTaken;
 import com.nexus.core.stock.StockService;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,14 +38,18 @@ public class SaleService {
     private final StockService stock;
     private final ShipmentService shipments;
     private final SalePayments payments;
+    private final ExtraCosts extraCosts;
+    private final ExchangeRateService rates;
 
     SaleService(SaleRepository repository, CatalogService catalog, StockService stock, ShipmentService shipments,
-                SalePayments payments) {
+                SalePayments payments, ExtraCosts extraCosts, ExchangeRateService rates) {
         this.repository = repository;
         this.catalog = catalog;
         this.stock = stock;
         this.shipments = shipments;
         this.payments = payments;
+        this.extraCosts = extraCosts;
+        this.rates = rates;
     }
 
     @Transactional
@@ -180,38 +188,87 @@ public class SaleService {
         return total;
     }
 
+    /**
+     * Builds the sale with its profit. Every cost (purchase, shipping, repairs, fees) is converted into
+     * the sale currency at the rate valid on the sale day. If one rate is missing, the profit is unknown
+     * and the reason says which rate to add: Nexus never guesses.
+     */
     private Sale assemble(SaleRepository.SaleRow row) {
+        String currency = row.currency();
+        LocalDate day = row.saleDate();
+        Set<String> missingRates = new LinkedHashSet<>();
         List<SaleLine> lines = new ArrayList<>();
-        Money total = Money.zero(row.currency());
-        Money profit = Money.zero(row.currency());
-        boolean profitKnown = true;
+        Money total = Money.zero(currency);
+        Money goodsCost = Money.zero(currency);
+        boolean goodsCostKnown = true;
+
         for (SaleRepository.LineRow line : repository.findLines(row.id())) {
-            Money unitPrice = Money.of(line.unitPrice().toPlainString(), row.currency());
+            Money unitPrice = Money.of(line.unitPrice().toPlainString(), currency);
             Money lineTotal = unitPrice.times(line.quantity());
-            Money cost = line.costAmount() == null ? null
-                    : Money.of(line.costAmount().toPlainString(), line.costCurrency());
-            Money lineProfit = cost != null && cost.currency().equals(lineTotal.currency())
-                    ? lineTotal.minus(cost) : null;
-            List<SaleAllocation> allocations = repository.findAllocations(line.id()).stream()
+            List<SaleRepository.AllocationRow> allocationRows = repository.findAllocations(line.id());
+            Money cost = inCurrency(costParts(line, allocationRows), currency, day, missingRates).orElse(null);
+            Money lineProfit = cost == null ? null : lineTotal.minus(cost);
+            List<SaleAllocation> allocations = allocationRows.stream()
                     .map(a -> new SaleAllocation(a.lotPublicId(), a.quantity(), a.unitCostAmount() == null ? null
                             : Money.of(a.unitCostAmount().toPlainString(), a.unitCostCurrency())))
                     .toList();
-            LocalDate warrantyEnd = line.warrantyDays() == 0 ? null : row.saleDate().plusDays(line.warrantyDays());
+            LocalDate warrantyEnd = line.warrantyDays() == 0 ? null : day.plusDays(line.warrantyDays());
 
             lines.add(new SaleLine(line.id(), line.lineNo(), line.productId(), line.unitPublicId(), line.quantity(),
                     unitPrice, lineTotal, cost, lineProfit, allocations, line.warrantyDays(), warrantyEnd,
                     line.warrantyTerms()));
             total = total.plus(lineTotal);
-            if (lineProfit == null) {
-                profitKnown = false;
+            if (cost == null) {
+                goodsCostKnown = false;
             } else {
-                profit = profit.plus(lineProfit);
+                goodsCost = goodsCost.plus(cost);
             }
         }
-        Money paid = Money.of(payments.paidForSale(row.id()).toPlainString(), row.currency());
-        return new Sale(row.id(), row.publicId(), row.customerId(), row.customerName(), row.locationId(),
-                row.saleDate(), row.currency(), row.notes(), lines, total, profitKnown ? profit : null, paid,
-                total.minus(paid), PaymentStatus.of(total, paid));
+
+        Optional<Money> saleExpenses = inCurrency(extraCosts.forSale(row.id()), currency, day, missingRates);
+        Money profit = goodsCostKnown && saleExpenses.isPresent()
+                ? total.minus(goodsCost).minus(saleExpenses.get()) : null;
+        Money paid = Money.of(payments.paidForSale(row.id()).toPlainString(), currency);
+        return new Sale(row.id(), row.publicId(), row.customerId(), row.customerName(), row.locationId(), day,
+                currency, row.notes(), lines, total, saleExpenses.orElse(null), profit,
+                missingRates.isEmpty() ? null : String.join("; ", missingRates), paid, total.minus(paid),
+                PaymentStatus.of(total, paid));
+    }
+
+    /** What the goods of a line cost: purchase price, shipping and expenses on the unit (or per lot piece). */
+    private List<Money> costParts(SaleRepository.LineRow line, List<SaleRepository.AllocationRow> allocations) {
+        List<Money> parts = new ArrayList<>();
+        if (line.unitId() != null) {
+            parts.add(Money.of(line.unitCostAmount().toPlainString(), line.unitCostCurrency()));
+            parts.addAll(shipments.shippingCostPerPieceOfUnit(line.unitId()));
+            parts.addAll(extraCosts.forUnit(line.unitId()));
+            return parts;
+        }
+        for (SaleRepository.AllocationRow allocation : allocations) {
+            Money piece = Money.of(allocation.lotCostAmount().toPlainString(), allocation.lotCostCurrency());
+            parts.add(piece.times(allocation.quantity()));
+            for (Money shipping : shipments.shippingCostPerPieceOfLot(allocation.lotId())) {
+                parts.add(shipping.times(allocation.quantity()));
+            }
+        }
+        return parts;
+    }
+
+    /** The sum of all parts in the sale currency, or empty if a rate is missing (noted in missingRates). */
+    private Optional<Money> inCurrency(List<Money> parts, String currency, LocalDate day, Set<String> missingRates) {
+        Money sum = Money.zero(currency);
+        boolean known = true;
+        for (Money part : parts) {
+            Optional<Money> converted = rates.convert(part, currency, day);
+            if (converted.isPresent()) {
+                sum = sum.plus(converted.get());
+            } else {
+                known = false;
+                missingRates.add("No " + part.currency().getCurrencyCode() + " to " + currency
+                        + " exchange rate on or before " + day);
+            }
+        }
+        return known ? Optional.of(sum) : Optional.empty();
     }
 
     private static int requireWarrantyDays(Integer days) {

@@ -45,6 +45,13 @@ class MoneyTest {
     }
 
     @Test
+    void convertsWithARateAndTheDecimalsOfTheTargetCurrency() {
+        Money dinars = Money.of("323", "EUR").convertTo("TND", new java.math.BigDecimal("3.3798"));
+
+        assertThat(dinars).isEqualTo(Money.of("1091.675", "TND"));
+    }
+
+    @Test
     void multipliesByAQuantity() {
         assertThat(Money.of("35.50", "EUR").times(10)).isEqualTo(Money.of("355.00", "EUR"));
         assertThat(Money.of("0.333", "TND").times(3)).isEqualTo(Money.of("0.999", "TND"));

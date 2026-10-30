@@ -83,6 +83,22 @@ class StockRepository {
                 .update();
     }
 
+    void moveUnit(long unitId, UnitStatus status, long locationId) {
+        jdbc.sql("UPDATE inventory_units SET status = :status, location_id = :locationId WHERE id = :id")
+                .param("status", status.name())
+                .param("locationId", locationId)
+                .param("id", unitId)
+                .update();
+    }
+
+    void updateLot(long lotId, String status, long locationId) {
+        jdbc.sql("UPDATE inventory_lots SET status = :status, location_id = :locationId WHERE id = :id")
+                .param("status", status)
+                .param("locationId", locationId)
+                .param("id", lotId)
+                .update();
+    }
+
     void updateUnitStatus(long unitId, UnitStatus status) {
         jdbc.sql("UPDATE inventory_units SET status = :status WHERE id = :id")
                 .param("status", status.name())

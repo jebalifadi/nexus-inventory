@@ -60,6 +60,11 @@ public class CatalogService {
                 .orElseThrow(() -> new NotFoundException("Product " + id + " not found"));
     }
 
+    /** Validates the values of one physical item of a product's category. */
+    public Map<String, String> validateItemAttributes(Category category, Map<String, String> values) {
+        return ProductRules.validateItemAttributes(category, values);
+    }
+
     @Transactional(readOnly = true)
     public List<Product> listProducts(Long categoryId) {
         List<Long> ids = categoryId == null

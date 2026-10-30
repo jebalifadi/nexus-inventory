@@ -11,7 +11,11 @@ public record Category(Long id, String name, TrackingMode trackingMode, List<Cat
     }
 
     public List<CategoryField> productFields() {
-        return fields.stream().filter(field -> field.scope() == FieldScope.PRODUCT).toList();
+        return fields(FieldScope.PRODUCT);
+    }
+
+    public List<CategoryField> fields(FieldScope scope) {
+        return fields.stream().filter(field -> field.scope() == scope).toList();
     }
 
     public Optional<CategoryField> field(String key) {

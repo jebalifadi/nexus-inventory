@@ -31,12 +31,38 @@ React 19 · TypeScript · Vite (later: Redis, RabbitMQ, Kubernetes, Python/FastA
 nexus-inventory/
 ├── services/core-service/   Spring Boot backend (inventory, sales, payments)
 ├── frontend/                React web app (Vite + TypeScript)
+├── scripts/                 Start, stop, backup and restore for daily use
 ├── deploy/docker/           Docker Compose for local development
 ├── docs/                    Architecture decision records (adr/)
 └── .github/workflows/       CI pipeline
 ```
 
-## Run it locally (macOS)
+## Daily use (macOS)
+
+One command starts everything and opens the app at <http://localhost:4173>:
+
+```bash
+scripts/start.sh      # database, backend and web app; makes the day's first backup
+scripts/stop.sh       # stop the app (add --all to also stop the database)
+```
+
+You need Docker Desktop running, Java 25 and Node.js (see below). Logs are in `.run/`.
+
+### Backups
+
+`scripts/start.sh` saves a backup once a day, before the backend starts, so before any database
+update. Backups go to `~/Documents/nexus-backups` and the newest 30 are kept.
+
+```bash
+scripts/backup.sh                         # save a backup now
+scripts/restore.sh                        # list backups
+scripts/restore.sh <file>                 # restore one (stop Nexus first; asks, and backs up the current data)
+```
+
+Your data lives in a Docker volume. `docker compose down -v` deletes it for good, so copy the
+backup folder somewhere safe (another disk or a cloud folder) from time to time.
+
+## Run it locally for development (macOS)
 
 You need **Java 25**, **Docker Desktop**, **Node.js 22+** (for the frontend) and **Git**. Check with:
 
@@ -88,13 +114,17 @@ git --version
 
 ## Environment variables
 
-Copy `.env.example` to `.env` to override the local defaults. `.env` is never committed.
+Copy `.env.example` to `.env` to override the local defaults; `scripts/start.sh` reads it. `.env` is never committed.
 
 | Variable | Default (local only) |
 |---|---|
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/nexus` |
 | `DATABASE_USER` | `nexus` |
 | `DATABASE_PASSWORD` | `nexus_dev_password` |
+| `JWT_SECRET` | a local development secret |
+| `NEXUS_OWNER_USERNAME` / `NEXUS_OWNER_PASSWORD` | `owner` / `change-me-please` (first start only) |
+| `NEXUS_BACKUP_DIR` | `~/Documents/nexus-backups` |
+| `NEXUS_BACKUP_KEEP` | `30` |
 
 ## Database migrations
 

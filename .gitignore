@@ -21,3 +21,6 @@ target/
 *.log
 *.dump
 *.sql.gz
+
+# Process ids and logs of scripts/start.sh
+.run/

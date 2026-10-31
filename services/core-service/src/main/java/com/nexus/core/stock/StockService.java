@@ -251,6 +251,12 @@ public class StockService {
         return repository.findLotIdByPurchaseLine(purchaseLineId);
     }
 
+    /** What the stock still owned is worth at purchase cost, per currency. */
+    @Transactional(readOnly = true)
+    public Map<String, java.math.BigDecimal> stockValueByCurrency() {
+        return repository.stockValueByCurrency();
+    }
+
     /** Quantity in stock per product and location, units and lots together. */
     @Transactional(readOnly = true)
     public List<StockLevel> stockLevels() {

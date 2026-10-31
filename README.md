@@ -5,7 +5,8 @@ country, stores them and sells them wherever it decides. Nexus tracks every prod
 purchase to sale, with its real cost and real profit.
 
 > **Status:** Phase 1 (core domain) complete: catalog, stock, purchases, shipping, sales, payments,
-> expenses, exchange rates, warranty, cash, login with roles and audit log. See the [roadmap](#roadmap).
+> expenses, exchange rates, warranty, cash, login with roles and audit log. Phase 2 (React frontend)
+> started: login and inventory list. See the [roadmap](#roadmap).
 
 ## Features
 
@@ -20,14 +21,15 @@ purchase to sale, with its real cost and real profit.
 
 ## Tech stack
 
-Java 25 · Spring Boot 4.1 · PostgreSQL 18 · Flyway · Testcontainers · Docker · GitHub Actions
-(later: React, Redis, RabbitMQ, Kubernetes, Python/FastAPI with a local AI model)
+Java 25 · Spring Boot 4.1 · PostgreSQL 18 · Flyway · Testcontainers · Docker · GitHub Actions ·
+React 19 · TypeScript · Vite (later: Redis, RabbitMQ, Kubernetes, Python/FastAPI with a local AI model)
 
 ## Repository layout
 
 ```
 nexus-inventory/
 ├── services/core-service/   Spring Boot backend (inventory, sales, payments)
+├── frontend/                React web app (Vite + TypeScript)
 ├── deploy/docker/           Docker Compose for local development
 ├── docs/                    Architecture decision records (adr/)
 └── .github/workflows/       CI pipeline
@@ -35,11 +37,12 @@ nexus-inventory/
 
 ## Run it locally (macOS)
 
-You need **Java 25**, **Docker Desktop** and **Git**. Check with:
+You need **Java 25**, **Docker Desktop**, **Node.js 22+** (for the frontend) and **Git**. Check with:
 
 ```bash
 java -version     # should say 25
 docker --version
+node --version    # 22 or newer; install with: brew install node
 git --version
 ```
 
@@ -61,12 +64,26 @@ git --version
    - <http://localhost:8080/actuator/health> → `{"status":"UP"}`
    - <http://localhost:8080/api/v1/system/info> → the application name and its currencies
 
-4. Run the tests (Docker must be running, because the tests start their own PostgreSQL):
+4. Start the frontend (in a second terminal, while the backend runs):
+
+   ```bash
+   cd frontend
+   npm install       # first time only
+   npm run dev
+   ```
+
+   Open <http://localhost:5173> and sign in. Locally the first owner is `owner` / `change-me-please`
+   (see `NEXUS_OWNER_*` in `.env.example`). The dev server forwards `/api` calls to the backend on
+   port 8080, so the backend needs no CORS setup.
+
+5. Run the tests (Docker must be running, because the tests start their own PostgreSQL):
 
    ```bash
    cd services/core-service
    ./gradlew test
    ```
+
+   For the frontend, `npm run build` type-checks and builds, and `npm run lint` checks the code.
 
 ## Environment variables
 
@@ -87,9 +104,9 @@ applied automatically by Flyway at startup. Never edit a migration that already 
 
 | Phase | Goal |
 |---|---|
-| **0 · Foundations** ← now | Repository, backend skeleton, database, CI |
+| 0 · Foundations | Repository, backend skeleton, database, CI |
 | 1 · Core domain | Catalog, units and lots, purchases, sales, payments, FIFO, landed cost |
-| 2 · Frontend | React app for daily work |
+| **2 · Frontend** ← now | React app for daily work |
 | 3 · Insight | Dashboard, analytics, exchange rates, alerts, import |
 | 4 · DevOps | Containers for everything, full CI/CD |
 | 5 · Services | Extract services, events with RabbitMQ, API gateway |

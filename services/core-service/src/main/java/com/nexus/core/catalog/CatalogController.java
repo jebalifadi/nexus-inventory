@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,6 +27,12 @@ class CatalogController {
     }
 
     record NewProduct(Long categoryId, String sku, Map<String, String> attributes) {
+    }
+
+    record CategoryChange(String name) {
+    }
+
+    record ProductChange(String sku, Map<String, String> attributes) {
     }
 
     private final CatalogService catalog;
@@ -51,6 +58,12 @@ class CatalogController {
     @GetMapping("/categories/{id}")
     Category getCategory(@PathVariable("id") long id) {
         return catalog.getCategory(id);
+    }
+
+    /** Renames a category; fields and tracking mode cannot change. */
+    @PutMapping("/categories/{id}")
+    Category renameCategory(@PathVariable("id") long id, @RequestBody CategoryChange request) {
+        return catalog.renameCategory(id, request.name());
     }
 
     @DeleteMapping("/categories/{id}")
@@ -82,6 +95,12 @@ class CatalogController {
     @GetMapping("/products/{id}")
     Product getProduct(@PathVariable("id") long id) {
         return catalog.getProduct(id);
+    }
+
+    /** Changes a product's SKU and product fields; its category cannot change. */
+    @PutMapping("/products/{id}")
+    Product updateProduct(@PathVariable("id") long id, @RequestBody ProductChange request) {
+        return catalog.updateProduct(id, request.sku(), request.attributes());
     }
 
     @DeleteMapping("/products/{id}")

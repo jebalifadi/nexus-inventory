@@ -6,7 +6,8 @@ purchase to sale, with its real cost and real profit.
 
 > **Status:** Phase 1 (core domain) complete: catalog, stock, purchases, shipping, sales, payments,
 > expenses, exchange rates, warranty, cash, login with roles and audit log. Phase 2 (React frontend)
-> started: login, inventory list with SKUs, and a screen to create products and add stock. See the [roadmap](#roadmap).
+> started: login, inventory list with SKUs, adding products and stock, and editing or deleting
+> categories and products. See the [roadmap](#roadmap).
 
 ## Features
 

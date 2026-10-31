@@ -66,6 +66,13 @@ class CatalogRepository {
         return jdbc.sql("SELECT id FROM categories WHERE deleted_at IS NULL ORDER BY name").query(Long.class).list();
     }
 
+    void updateCategoryName(long id, String name) {
+        jdbc.sql("UPDATE categories SET name = :name WHERE id = :id AND deleted_at IS NULL")
+                .param("id", id)
+                .param("name", name)
+                .update();
+    }
+
     long insertProduct(long categoryId, String sku, String name) {
         return jdbc.sql("""
                         INSERT INTO products (category_id, sku, name)
@@ -83,6 +90,20 @@ class CatalogRepository {
                 .param("productId", productId)
                 .param("fieldId", fieldId)
                 .param("value", value)
+                .update();
+    }
+
+    void updateProduct(long id, String sku, String name) {
+        jdbc.sql("UPDATE products SET sku = :sku, name = :name WHERE id = :id AND deleted_at IS NULL")
+                .param("id", id)
+                .param("sku", sku)
+                .param("name", name)
+                .update();
+    }
+
+    void deleteAttributes(long productId) {
+        jdbc.sql("DELETE FROM product_attributes WHERE product_id = :productId")
+                .param("productId", productId)
                 .update();
     }
 

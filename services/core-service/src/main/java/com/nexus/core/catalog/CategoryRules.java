@@ -12,10 +12,10 @@ final class CategoryRules {
     private CategoryRules() {
     }
 
+    private static final int MAX_NAME_LENGTH = 100;
+
     static List<CategoryField> validate(String name, TrackingMode trackingMode, List<FieldDefinition> definitions) {
-        if (name == null || name.isBlank()) {
-            throw new BusinessRuleException("Category name is required");
-        }
+        validateName(name);
         if (trackingMode == null) {
             throw new BusinessRuleException("Tracking mode is required (UNIT or LOT)");
         }
@@ -29,6 +29,18 @@ final class CategoryRules {
             fields.add(field);
         }
         return fields;
+    }
+
+    /** Checks a category name and returns it trimmed. */
+    static String validateName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new BusinessRuleException("Category name is required");
+        }
+        String value = name.trim();
+        if (value.length() > MAX_NAME_LENGTH) {
+            throw new BusinessRuleException("Category name is too long (max " + MAX_NAME_LENGTH + " characters)");
+        }
+        return value;
     }
 
     private static CategoryField toField(FieldDefinition definition) {

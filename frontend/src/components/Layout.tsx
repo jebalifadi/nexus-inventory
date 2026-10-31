@@ -15,6 +15,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/inventory" end>
             Inventory
           </NavLink>
+          <NavLink to="/catalog">Catalog</NavLink>
           {isOwner && <NavLink to="/stock/new">Add stock</NavLink>}
         </nav>
         <span className="muted user">

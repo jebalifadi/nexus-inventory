@@ -123,6 +123,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (response.status === 401 && session) onUnauthorized()
     throw new ApiError(response.status, await errorMessage(response))
   }
+  if (response.status === 204) return undefined as T // e.g. DELETE: success without a body
   return (await response.json()) as T
 }
 
@@ -189,4 +190,35 @@ export function receiveUnit(stock: NewStock & { attributes: Record<string, strin
 /** A quantity of identical goods (LOT categories). */
 export function receiveLot(stock: NewStock & { quantity: number }) {
   return request<unknown>('/api/v1/lots', { method: 'POST', body: JSON.stringify(stock) })
+}
+
+export function renameCategory(id: number, name: string) {
+  return request<Category>(`/api/v1/categories/${id}`, { method: 'PUT', body: JSON.stringify({ name }) })
+}
+
+/** Soft delete: the category goes to the trash and can be restored. Refused while it has products. */
+export function deleteCategory(id: number, reason: string) {
+  return request<void>(`/api/v1/categories/${id}${reasonQuery(reason)}`, { method: 'DELETE' })
+}
+
+export function restoreCategory(id: number) {
+  return request<Category>(`/api/v1/categories/${id}/restore`, { method: 'POST' })
+}
+
+/** Changes SKU and product fields; the backend rebuilds the name. The category cannot change. */
+export function updateProduct(id: number, product: { sku: string; attributes: Record<string, string> }) {
+  return request<Product>(`/api/v1/products/${id}`, { method: 'PUT', body: JSON.stringify(product) })
+}
+
+/** Soft delete: the product goes to the trash and can be restored. Refused while it has stock. */
+export function deleteProduct(id: number, reason: string) {
+  return request<void>(`/api/v1/products/${id}${reasonQuery(reason)}`, { method: 'DELETE' })
+}
+
+export function restoreProduct(id: number) {
+  return request<Product>(`/api/v1/products/${id}/restore`, { method: 'POST' })
+}
+
+function reasonQuery(reason: string) {
+  return reason.trim() ? `?reason=${encodeURIComponent(reason.trim())}` : ''
 }

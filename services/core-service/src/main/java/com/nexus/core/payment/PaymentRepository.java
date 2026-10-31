@@ -14,12 +14,13 @@ import org.springframework.stereotype.Repository;
 class PaymentRepository {
 
     record PaymentRow(long id, String publicId, PaymentDirection direction, String reference, BigDecimal amount,
-                      String currency, LocalDate paymentDate, PaymentMethod method, String notes) {
+                      String currency, LocalDate paymentDate, PaymentMethod method, String notes,
+                      PaymentKind kind) {
     }
 
     private static final String PAYMENT_QUERY = """
             SELECT p.id, p.public_id, p.direction, COALESCE(s.public_id, pu.public_id) AS reference,
-                   p.amount, p.currency, p.payment_date, p.method, p.notes
+                   p.amount, p.currency, p.payment_date, p.method, p.notes, p.kind
             FROM payments p
             LEFT JOIN sales s ON s.id = p.sale_id
             LEFT JOIN purchases pu ON pu.id = p.purchase_id
@@ -65,8 +66,24 @@ class PaymentRepository {
                 .single();
     }
 
+    long insertRefund(long saleId, BigDecimal amount, String currency, LocalDate paymentDate, String notes) {
+        return jdbc.sql("""
+                        INSERT INTO payments (direction, kind, sale_id, amount, currency, payment_date, method, notes)
+                        VALUES ('INCOMING', 'REFUND', :saleId, :amount, :currency, :paymentDate, 'OTHER', :notes)
+                        RETURNING id""")
+                .param("saleId", saleId)
+                .param("amount", amount)
+                .param("currency", currency)
+                .param("paymentDate", paymentDate)
+                .param("notes", notes)
+                .query(Long.class)
+                .single();
+    }
+
+    /** What the customer paid for a sale, minus what was refunded. */
     BigDecimal sumForSale(long saleId) {
-        return jdbc.sql("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE sale_id = :id")
+        return jdbc.sql("SELECT COALESCE(SUM(CASE WHEN kind = 'REFUND' THEN -amount ELSE amount END), 0) "
+                        + "FROM payments WHERE sale_id = :id")
                 .param("id", saleId)
                 .query(BigDecimal.class)
                 .single();
@@ -110,6 +127,7 @@ class PaymentRepository {
                 rs.getString("currency").trim(),
                 rs.getObject("payment_date", LocalDate.class),
                 PaymentMethod.valueOf(rs.getString("method")),
-                rs.getString("notes"));
+                rs.getString("notes"),
+                PaymentKind.valueOf(rs.getString("kind")));
     }
 }

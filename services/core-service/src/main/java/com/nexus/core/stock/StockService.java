@@ -170,6 +170,25 @@ public class StockService {
         return taken;
     }
 
+    /** A sold unit comes back: it is RETURNED, then in inventory again, ready to be sold again. */
+    @Transactional
+    public void returnUnit(long unitId) {
+        InventoryUnit unit = repository.findUnitById(unitId).orElseThrow();
+        if (!unit.status().canMoveTo(UnitStatus.RETURNED)) {
+            throw new BusinessRuleException("Unit " + unit.publicId() + " is " + unit.status() + " and cannot be returned");
+        }
+        repository.updateUnitStatus(unitId, UnitStatus.RETURNED);
+        repository.insertStatusChange(unitId, unit.status(), UnitStatus.RETURNED);
+        repository.updateUnitStatus(unitId, UnitStatus.IN_INVENTORY);
+        repository.insertStatusChange(unitId, UnitStatus.RETURNED, UnitStatus.IN_INVENTORY);
+    }
+
+    /** Sold pieces come back into the lot they were taken from. */
+    @Transactional
+    public void returnToLot(long lotId, int quantity) {
+        repository.returnToLot(lotId, quantity);
+    }
+
     /** Takes a unit out of stock to put it in a shipment. */
     @Transactional
     public InventoryUnit sendUnit(String publicId, long fromLocationId) {

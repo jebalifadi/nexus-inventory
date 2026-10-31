@@ -9,5 +9,5 @@ import java.time.LocalDate;
  * @param reference the sale (S-…) or purchase (P-…) it pays
  */
 public record Payment(Long id, String publicId, PaymentDirection direction, String reference, Money amount,
-                      LocalDate paymentDate, PaymentMethod method, String notes) {
+                      LocalDate paymentDate, PaymentMethod method, String notes, PaymentKind kind) {
 }

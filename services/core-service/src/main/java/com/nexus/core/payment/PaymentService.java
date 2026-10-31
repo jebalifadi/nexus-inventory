@@ -59,6 +59,27 @@ public class PaymentService {
         return toPayment(repository.findPayment(id).orElseThrow());
     }
 
+    /** Gives money back to a customer, at most what they paid. Recorded as a refund, never by deleting a payment. */
+    @Transactional
+    public Payment recordRefund(String salePublicId, Money amount, LocalDate refundDate, String notes) {
+        long saleId = repository.lockSale(salePublicId)
+                .orElseThrow(() -> new NotFoundException("Sale " + salePublicId + " not found"));
+        Sale sale = sales.getSale(salePublicId);
+        if (amount == null || amount.amount().signum() <= 0) {
+            throw new BusinessRuleException("Refund must be more than zero");
+        }
+        if (!amount.currency().equals(sale.paid().currency())) {
+            throw new BusinessRuleException("Refund must be in " + sale.currency());
+        }
+        if (amount.amount().compareTo(sale.paid().amount()) > 0) {
+            throw new BusinessRuleException("Refund of " + amount + " is more than the " + sale.paid()
+                    + " paid for " + salePublicId);
+        }
+        long id = repository.insertRefund(saleId, amount.amount(), sale.currency(), dateOrToday(refundDate),
+                blankToNull(notes));
+        return toPayment(repository.findPayment(id).orElseThrow());
+    }
+
     @Transactional(readOnly = true)
     public List<Payment> paymentsOfSale(String salePublicId) {
         Sale sale = sales.getSale(salePublicId);
@@ -116,7 +137,8 @@ public class PaymentService {
 
     private static Payment toPayment(PaymentRepository.PaymentRow row) {
         return new Payment(row.id(), row.publicId(), row.direction(), row.reference(),
-                Money.of(row.amount().toPlainString(), row.currency()), row.paymentDate(), row.method(), row.notes());
+                Money.of(row.amount().toPlainString(), row.currency()), row.paymentDate(), row.method(), row.notes(),
+                row.kind());
     }
 
     private static LocalDate dateOrToday(LocalDate date) {

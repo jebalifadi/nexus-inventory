@@ -111,6 +111,17 @@ class StockRepository {
                 .list();
     }
 
+    void returnToLot(long lotId, int quantity) {
+        jdbc.sql("""
+                        UPDATE inventory_lots
+                        SET quantity_remaining = quantity_remaining + :quantity,
+                            status = CASE WHEN status = 'DEPLETED' THEN 'IN_STOCK' ELSE status END
+                        WHERE id = :id""")
+                .param("quantity", quantity)
+                .param("id", lotId)
+                .update();
+    }
+
     void takeFromLot(long lotId, int quantity) {
         jdbc.sql("""
                         UPDATE inventory_lots

@@ -25,7 +25,7 @@ public class CatalogService {
     @Transactional
     public Category createCategory(String name, TrackingMode trackingMode, List<FieldDefinition> fields) {
         List<CategoryField> validated = CategoryRules.validate(name, trackingMode, fields);
-        long categoryId = repository.insertCategory(name.trim(), trackingMode);
+        long categoryId = repository.insertCategory(CategoryRules.validateName(name), trackingMode);
         int position = 0;
         for (CategoryField field : validated) {
             long fieldId = repository.insertField(categoryId, field, position++);
@@ -43,6 +43,35 @@ public class CatalogService {
                 .orElseThrow(() -> trash.notFound(TrashType.CATEGORY, id, "Category " + id));
     }
 
+    /**
+     * Renames a category. Its fields and tracking mode stay as they are: existing products and stock
+     * depend on them.
+     */
+    @Transactional
+    public Category renameCategory(long id, String name) {
+        return updateCategory(id, name, null);
+    }
+
+    /**
+     * Renames a category and, when {@code nameFields} is given, chooses which product fields form the
+     * product names, in order; the names of its products are rebuilt. Fields and tracking mode stay.
+     */
+    @Transactional
+    public Category updateCategory(long id, String name, List<String> nameFields) {
+        Category category = getCategory(id);
+        repository.updateCategoryName(id, CategoryRules.validateName(name));
+        if (nameFields != null) {
+            repository.updateNameFields(id, CategoryRules.validateNameFields(category, nameFields));
+            Category updated = getCategory(id);
+            for (long productId : repository.findProductIdsByCategory(id)) {
+                String productName = ProductRules.buildName(updated, getProduct(productId).attributes());
+                repository.updateProductName(productId,
+                        productName.isEmpty() ? getProduct(productId).sku() : productName);
+            }
+        }
+        return getCategory(id);
+    }
+
     @Transactional(readOnly = true)
     public List<Category> listCategories() {
         return repository.findAllCategoryIds().stream().map(this::getCategory).toList();
@@ -58,6 +87,25 @@ public class CatalogService {
         values.forEach((key, value) ->
                 repository.insertAttribute(productId, category.field(key).orElseThrow().id(), value));
         return getProduct(productId);
+    }
+
+    /**
+     * Changes a product's SKU and product-level values, checked like a new product; the name is
+     * rebuilt from the new values. The category cannot change. Purchases, sales and stock refer to
+     * the product by id, so they show the new SKU and name.
+     */
+    @Transactional
+    public Product updateProduct(long id, String sku, Map<String, String> attributes) {
+        Product product = getProduct(id);
+        Category category = getCategory(product.categoryId());
+        String validSku = ProductRules.validateSku(sku);
+        Map<String, String> values = ProductRules.validateAttributes(category, attributes);
+        String name = ProductRules.buildName(category, values);
+        repository.updateProduct(id, validSku, name.isEmpty() ? validSku : name);
+        repository.deleteAttributes(id);
+        values.forEach((key, value) ->
+                repository.insertAttribute(id, category.field(key).orElseThrow().id(), value));
+        return getProduct(id);
     }
 
     @Transactional(readOnly = true)

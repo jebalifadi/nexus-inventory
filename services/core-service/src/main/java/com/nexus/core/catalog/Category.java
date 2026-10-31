@@ -1,5 +1,6 @@
 package com.nexus.core.catalog;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,6 +13,14 @@ public record Category(Long id, String name, TrackingMode trackingMode, List<Cat
 
     public List<CategoryField> productFields() {
         return fields(FieldScope.PRODUCT);
+    }
+
+    /** The fields that form a product's name, in name order. */
+    public List<CategoryField> nameFields() {
+        return fields.stream()
+                .filter(field -> field.namePosition() != null)
+                .sorted(Comparator.comparing(CategoryField::namePosition))
+                .toList();
     }
 
     public List<CategoryField> fields(FieldScope scope) {

@@ -29,8 +29,8 @@ class CatalogRepository {
     long insertField(long categoryId, CategoryField field, int position) {
         return jdbc.sql("""
                         INSERT INTO category_fields
-                            (category_id, field_key, label, field_type, scope, required, position)
-                        VALUES (:categoryId, :key, :label, :type, :scope, :required, :position)
+                            (category_id, field_key, label, field_type, scope, required, position, name_position)
+                        VALUES (:categoryId, :key, :label, :type, :scope, :required, :position, :namePosition)
                         RETURNING id""")
                 .param("categoryId", categoryId)
                 .param("key", field.key())
@@ -39,6 +39,7 @@ class CatalogRepository {
                 .param("scope", field.scope().name())
                 .param("required", field.required())
                 .param("position", position)
+                .param("namePosition", field.namePosition())
                 .query(Long.class)
                 .single();
     }
@@ -66,6 +67,13 @@ class CatalogRepository {
         return jdbc.sql("SELECT id FROM categories WHERE deleted_at IS NULL ORDER BY name").query(Long.class).list();
     }
 
+    void updateCategoryName(long id, String name) {
+        jdbc.sql("UPDATE categories SET name = :name WHERE id = :id AND deleted_at IS NULL")
+                .param("id", id)
+                .param("name", name)
+                .update();
+    }
+
     long insertProduct(long categoryId, String sku, String name) {
         return jdbc.sql("""
                         INSERT INTO products (category_id, sku, name)
@@ -83,6 +91,41 @@ class CatalogRepository {
                 .param("productId", productId)
                 .param("fieldId", fieldId)
                 .param("value", value)
+                .update();
+    }
+
+    /** Makes exactly these fields, in this order, the category's name fields. */
+    void updateNameFields(long categoryId, List<String> keys) {
+        jdbc.sql("UPDATE category_fields SET name_position = NULL WHERE category_id = :categoryId")
+                .param("categoryId", categoryId)
+                .update();
+        for (int i = 0; i < keys.size(); i++) {
+            jdbc.sql("UPDATE category_fields SET name_position = :position WHERE category_id = :categoryId AND field_key = :key")
+                    .param("position", i)
+                    .param("categoryId", categoryId)
+                    .param("key", keys.get(i))
+                    .update();
+        }
+    }
+
+    void updateProductName(long id, String name) {
+        jdbc.sql("UPDATE products SET name = :name WHERE id = :id")
+                .param("id", id)
+                .param("name", name)
+                .update();
+    }
+
+    void updateProduct(long id, String sku, String name) {
+        jdbc.sql("UPDATE products SET sku = :sku, name = :name WHERE id = :id AND deleted_at IS NULL")
+                .param("id", id)
+                .param("sku", sku)
+                .param("name", name)
+                .update();
+    }
+
+    void deleteAttributes(long productId) {
+        jdbc.sql("DELETE FROM product_attributes WHERE product_id = :productId")
+                .param("productId", productId)
                 .update();
     }
 
@@ -137,7 +180,7 @@ class CatalogRepository {
                 .forEach(e -> choices.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(e.getValue()));
 
         return jdbc.sql("""
-                        SELECT id, field_key, label, field_type, scope, required
+                        SELECT id, field_key, label, field_type, scope, required, name_position
                         FROM category_fields
                         WHERE category_id = :categoryId
                         ORDER BY position""")
@@ -149,7 +192,8 @@ class CatalogRepository {
                         FieldType.valueOf(rs.getString("field_type")),
                         FieldScope.valueOf(rs.getString("scope")),
                         rs.getBoolean("required"),
-                        choices.getOrDefault(rs.getLong("id"), List.of())))
+                        choices.getOrDefault(rs.getLong("id"), List.of()),
+                        rs.getObject("name_position", Integer.class)))
                 .list();
     }
 

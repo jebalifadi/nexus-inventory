@@ -1,22 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchStock, type StockLevel } from '../api'
-import { useAuth } from '../auth'
+import { Link } from 'react-router'
+import { fetchProducts, fetchStock, type StockLevel } from '../api'
+import { useIsOwner } from '../auth'
+import { Layout } from '../components/Layout'
+
+/** A stock level plus the product's SKU, which the stock endpoint does not return. */
+type Row = StockLevel & { sku: string }
 
 type State =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; rows: StockLevel[] }
+  | { kind: 'ready'; rows: Row[] }
 
 export function InventoryPage() {
-  const { session, logout } = useAuth()
+  const isOwner = useIsOwner()
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [search, setSearch] = useState('')
   const [reloads, setReloads] = useState(0)
 
   useEffect(() => {
     let cancelled = false // ignore the answer if the user left the page meanwhile
-    fetchStock()
-      .then((rows) => !cancelled && setState({ kind: 'ready', rows }))
+    // Load stock and products together, then look up each row's SKU by product id.
+    Promise.all([fetchStock(), fetchProducts()])
+      .then(([stock, products]) => {
+        const skus = new Map(products.map((p) => [p.id, p.sku]))
+        const rows = stock.map((s) => ({ ...s, sku: skus.get(s.productId) ?? '—' }))
+        if (!cancelled) setState({ kind: 'ready', rows })
+      })
       .catch((e: Error) => !cancelled && setState({ kind: 'error', message: e.message }))
     return () => {
       cancelled = true
@@ -32,34 +42,30 @@ export function InventoryPage() {
     if (state.kind !== 'ready') return []
     const query = search.trim().toLowerCase()
     return state.rows
-      .filter((r) => !query || `${r.productName} ${r.locationName}`.toLowerCase().includes(query))
-      .sort((a, b) => a.productName.localeCompare(b.productName) || a.locationName.localeCompare(b.locationName))
+      .filter((r) => !query || `${r.sku} ${r.productName} ${r.locationName}`.toLowerCase().includes(query))
+      .sort((a, b) => a.sku.localeCompare(b.sku) || a.locationName.localeCompare(b.locationName))
   }, [state, search])
 
   const totalPieces = rows.reduce((sum, r) => sum + r.quantity, 0)
 
   return (
-    <>
-      <header className="topbar">
-        <span className="brand">Nexus</span>
-        <span className="muted">
-          {session?.username} · {session?.roles.join(', ').toLowerCase()}
-        </span>
-        <button className="secondary" onClick={logout}>
-          Log out
-        </button>
-      </header>
-
-      <main className="page">
+    <Layout>
         <div className="page-head">
           <h1>Inventory</h1>
-          <input
-            type="search"
-            placeholder="Search product or location"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search inventory"
-          />
+          <div className="head-tools">
+            <input
+              type="search"
+              placeholder="Search SKU, product or location"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search inventory"
+            />
+            {isOwner && (
+              <Link className="button" to="/stock/new">
+                Add stock
+              </Link>
+            )}
+          </div>
         </div>
 
         {state.kind === 'loading' && <p className="muted">Loading stock…</p>}
@@ -75,6 +81,13 @@ export function InventoryPage() {
           <div className="card empty">
             <p>No stock yet.</p>
             <p className="muted">Stock appears here once a purchase or a received unit or lot is recorded.</p>
+            {isOwner && (
+              <p>
+                <Link className="button" to="/stock/new">
+                  Add your first product and stock
+                </Link>
+              </p>
+            )}
           </div>
         )}
 
@@ -83,6 +96,7 @@ export function InventoryPage() {
             <table>
               <thead>
                 <tr>
+                  <th>SKU</th>
                   <th>Product</th>
                   <th>Location</th>
                   <th className="num">Quantity</th>
@@ -91,6 +105,7 @@ export function InventoryPage() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={`${r.productId}-${r.locationId}`}>
+                    <td className="sku">{r.sku}</td>
                     <td>{r.productName}</td>
                     <td>{r.locationName}</td>
                     <td className="num">{r.quantity.toLocaleString()}</td>
@@ -98,7 +113,7 @@ export function InventoryPage() {
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="muted">
+                    <td colSpan={4} className="muted">
                       Nothing matches “{search}”.
                     </td>
                   </tr>
@@ -106,7 +121,7 @@ export function InventoryPage() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={2}>
+                  <td colSpan={3}>
                     {rows.length} {rows.length === 1 ? 'row' : 'rows'}
                   </td>
                   <td className="num">{totalPieces.toLocaleString()} pcs</td>
@@ -115,7 +130,6 @@ export function InventoryPage() {
             </table>
           </div>
         )}
-      </main>
-    </>
+    </Layout>
   )
 }

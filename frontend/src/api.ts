@@ -12,6 +12,46 @@ export type StockLevel = {
   quantity: number
 }
 
+export type FieldType = 'TEXT' | 'NUMBER' | 'CHOICE' | 'BOOLEAN' | 'DATE'
+/** PRODUCT: same for every piece (model, storage). ITEM: filled in per physical item (IMEI). */
+export type FieldScope = 'PRODUCT' | 'ITEM'
+/** UNIT: one record per physical item. LOT: tracked by quantity. */
+export type TrackingMode = 'UNIT' | 'LOT'
+
+export type CategoryField = {
+  id: number
+  key: string
+  label: string
+  type: FieldType
+  scope: FieldScope
+  required: boolean
+  choices: string[]
+}
+
+export type Category = { id: number; name: string; trackingMode: TrackingMode; fields: CategoryField[] }
+
+export type NewField = Omit<CategoryField, 'id' | 'key'>
+
+export type Product = {
+  id: number
+  categoryId: number
+  sku: string
+  name: string
+  attributes: Record<string, string>
+}
+
+export type Location = { id: number; name: string; country: string }
+
+/** Money is sent as text so amounts are never rounded: { amount: "12.50", currency: "EUR" }. */
+export type Money = { amount: string; currency: string }
+
+export type NewStock = {
+  productId: number
+  locationId: number
+  unitCost: Money
+  receivedDate: string
+}
+
 /** Thrown for any non-2xx answer; `message` is the backend's explanation when it gives one. */
 export class ApiError extends Error {
   readonly status: number
@@ -111,4 +151,42 @@ export async function login(username: string, password: string): Promise<Session
 
 export function fetchStock(): Promise<StockLevel[]> {
   return request<StockLevel[]>('/api/v1/stock')
+}
+
+export async function fetchCurrencies(): Promise<string[]> {
+  return (await request<{ supportedCurrencies: string[] }>('/api/v1/system/info')).supportedCurrencies
+}
+
+export function fetchCategories(): Promise<Category[]> {
+  return request<Category[]>('/api/v1/categories')
+}
+
+export function createCategory(category: { name: string; trackingMode: TrackingMode; fields: NewField[] }) {
+  return request<Category>('/api/v1/categories', { method: 'POST', body: JSON.stringify(category) })
+}
+
+export function fetchProducts(): Promise<Product[]> {
+  return request<Product[]>('/api/v1/products')
+}
+
+export function createProduct(product: { categoryId: number; sku: string; attributes: Record<string, string> }) {
+  return request<Product>('/api/v1/products', { method: 'POST', body: JSON.stringify(product) })
+}
+
+export function fetchLocations(): Promise<Location[]> {
+  return request<Location[]>('/api/v1/locations')
+}
+
+export function createLocation(location: { name: string; country: string }) {
+  return request<Location>('/api/v1/locations', { method: 'POST', body: JSON.stringify(location) })
+}
+
+/** One individually tracked item (UNIT categories), with its own item fields such as an IMEI. */
+export function receiveUnit(stock: NewStock & { attributes: Record<string, string> }) {
+  return request<unknown>('/api/v1/units', { method: 'POST', body: JSON.stringify(stock) })
+}
+
+/** A quantity of identical goods (LOT categories). */
+export function receiveLot(stock: NewStock & { quantity: number }) {
+  return request<unknown>('/api/v1/lots', { method: 'POST', body: JSON.stringify(stock) })
 }

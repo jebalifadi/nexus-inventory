@@ -43,10 +43,21 @@ export function useAuth(): Auth {
   return auth
 }
 
+/** Only the owner may change data; viewers can only look. */
+export function useIsOwner(): boolean {
+  return useAuth().session?.roles.includes('OWNER') ?? false
+}
+
 /** Shows its content only to a logged-in user; everyone else goes to the login screen. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const location = useLocation()
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   return children
+}
+
+/** Like RequireAuth, but for owner-only screens: viewers are sent back to the inventory. */
+export function RequireOwner({ children }: { children: ReactNode }) {
+  const isOwner = useIsOwner()
+  return <RequireAuth>{isOwner ? children : <Navigate to="/inventory" replace />}</RequireAuth>
 }

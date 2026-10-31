@@ -13,6 +13,16 @@ spring:
   flyway:
     locations: classpath:db/migration
 
+nexus:
+  security:
+    # At least 32 characters. Set a long random value outside local development.
+    jwt-secret: ${JWT_SECRET:local-development-secret-change-me-0123456789}
+    token-lifetime: PT8H
+    # Created at the first start, only when no user exists yet.
+    initial-owner:
+      username: ${NEXUS_OWNER_USERNAME:owner}
+      password: ${NEXUS_OWNER_PASSWORD:change-me-please}
+
 server:
   error:
     include-stacktrace: never

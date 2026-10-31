@@ -42,7 +42,7 @@ class CatalogIntegrationTest {
         Product product = catalog.createProduct(phones.id(), "IP14P-128-BLK",
                 Map.of("modell", "iPhone 14 Pro", "speicher", "128 GB", "farbe", "Schwarz"));
 
-        assertThat(product.name()).isEqualTo("iPhone 14 Pro, 128 GB, Schwarz");
+        assertThat(product.name()).isEqualTo("iPhone 14 Pro · 128 GB · Schwarz");
         assertThat(catalog.getProduct(product.id()).attributes())
                 .containsExactly(Map.entry("modell", "iPhone 14 Pro"), Map.entry("speicher", "128 GB"),
                         Map.entry("farbe", "Schwarz"));
@@ -97,7 +97,7 @@ class CatalogIntegrationTest {
                 Map.of("modell", "MacBook Air", "ram", "16 GB"));
 
         assertThat(updated.sku()).isEqualTo("MBA-16");
-        assertThat(updated.name()).isEqualTo("MacBook Air, 16 GB");
+        assertThat(updated.name()).isEqualTo("MacBook Air · 16 GB");
         assertThat(catalog.getProduct(product.id()).attributes())
                 .containsExactly(Map.entry("modell", "MacBook Air"), Map.entry("ram", "16 GB"));
     }
@@ -127,5 +127,29 @@ class CatalogIntegrationTest {
 
         assertThatThrownBy(() -> catalog.updateProduct(mini.id(), "MINI4", Map.of("modell", "Mini 4 Pro")))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void changingTheNameFieldsRebuildsTheProductNames() {
+        Category monitors = catalog.createCategory("Monitors", TrackingMode.LOT, List.of(
+                new FieldDefinition("Modell", FieldType.TEXT, FieldScope.PRODUCT, true, null, true),
+                new FieldDefinition("Grosse", FieldType.TEXT, FieldScope.PRODUCT, true, null, true),
+                new FieldDefinition("Farbe", FieldType.TEXT, FieldScope.PRODUCT, false, null)));
+        Product product = catalog.createProduct(monitors.id(), "U27-BLK",
+                Map.of("modell", "UltraSharp", "grosse", "27 in", "farbe", "Schwarz"));
+        assertThat(product.name()).isEqualTo("UltraSharp · 27 in");
+
+        // Size first, then model, then colour.
+        Category updated = catalog.updateCategory(monitors.id(), "Monitors", List.of("grosse", "modell", "farbe"));
+        assertThat(updated.nameFields()).extracting(CategoryField::key).containsExactly("grosse", "modell", "farbe");
+        assertThat(catalog.getProduct(product.id()).name()).isEqualTo("27 in · UltraSharp · Schwarz");
+
+        // No name fields at all: the SKU becomes the name.
+        catalog.updateCategory(monitors.id(), "Monitors", List.of());
+        assertThat(catalog.getProduct(product.id()).name()).isEqualTo("U27-BLK");
+
+        // Leaving the list out (rename only) keeps the name fields.
+        catalog.updateCategory(monitors.id(), "Screens", null);
+        assertThat(catalog.getCategory(monitors.id()).nameFields()).isEmpty();
     }
 }

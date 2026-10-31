@@ -4,9 +4,24 @@ import { createCategory, type Category, type FieldScope, type FieldType, type Tr
 type Props = { onCreated: (category: Category) => void; onCancel: () => void }
 
 /** A field row while editing; choices are typed as one comma-separated text. */
-type FieldDraft = { label: string; type: FieldType; scope: FieldScope; required: boolean; choices: string }
+type FieldDraft = {
+  label: string
+  type: FieldType
+  scope: FieldScope
+  required: boolean
+  choices: string
+  /** Part of the product name; name parts follow the order of the fields. */
+  inName: boolean
+}
 
-const emptyField = (): FieldDraft => ({ label: '', type: 'TEXT', scope: 'PRODUCT', required: false, choices: '' })
+const emptyField = (): FieldDraft => ({
+  label: '',
+  type: 'TEXT',
+  scope: 'PRODUCT',
+  required: false,
+  choices: '',
+  inName: false,
+})
 
 const TYPE_LABELS: Record<FieldType, string> = {
   TEXT: 'Text',
@@ -20,12 +35,16 @@ const TYPE_LABELS: Record<FieldType, string> = {
 export function NewCategoryForm({ onCreated, onCancel }: Props) {
   const [name, setName] = useState('')
   const [trackingMode, setTrackingMode] = useState<TrackingMode>('LOT')
-  const [fields, setFields] = useState<FieldDraft[]>([{ ...emptyField(), label: 'Model', required: true }])
+  const [fields, setFields] = useState<FieldDraft[]>([{ ...emptyField(), label: 'Model', required: true, inName: true }])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const updateField = (index: number, change: Partial<FieldDraft>) =>
     setFields((all) => all.map((f, i) => (i === index ? { ...f, ...change } : f)))
+
+  // Lots have no per-piece fields, so every field belongs to the product there.
+  const isProductField = (f: FieldDraft) => trackingMode === 'LOT' || f.scope === 'PRODUCT'
+  const nameParts = fields.filter((f) => f.label.trim() && f.inName && isProductField(f)).map((f) => f.label.trim())
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -43,6 +62,7 @@ export function NewCategoryForm({ onCreated, onCancel }: Props) {
             // Lots are identical goods, so they have no per-item fields.
             scope: trackingMode === 'LOT' ? 'PRODUCT' : f.scope,
             required: f.required,
+            inName: f.inName && isProductField(f),
             choices: f.type === 'CHOICE' ? f.choices.split(',').map((c) => c.trim()).filter(Boolean) : [],
           })),
       })
@@ -81,8 +101,9 @@ export function NewCategoryForm({ onCreated, onCancel }: Props) {
       <fieldset>
         <legend>Fields</legend>
         <p className="muted small">
-          The product name is built from the product fields, e.g. “iPhone 14, 128 GB”.
-          {trackingMode === 'UNIT' && ' Item fields are filled in for each piece when you add stock.'}
+          Tick <strong>In name</strong> for the fields that make up the product name, e.g. Model and Storage → “iPhone 13 ·
+          128 GB”. The other fields appear as their own columns.
+          {trackingMode === 'UNIT' && ' “Each item” fields (serial number, battery…) are filled in per piece when you add stock.'}
         </p>
         {fields.map((field, i) => (
           <div className="field-row" key={i}>
@@ -104,6 +125,15 @@ export function NewCategoryForm({ onCreated, onCancel }: Props) {
               </select>
             )}
             <label className="inline">
+              <input
+                type="checkbox"
+                checked={field.inName && isProductField(field)}
+                disabled={!isProductField(field)}
+                onChange={(e) => updateField(i, { inName: e.target.checked })}
+              />
+              In name
+            </label>
+            <label className="inline">
               <input type="checkbox" checked={field.required} onChange={(e) => updateField(i, { required: e.target.checked })} />
               Required
             </label>
@@ -124,6 +154,10 @@ export function NewCategoryForm({ onCreated, onCancel }: Props) {
         <button type="button" className="secondary" onClick={() => setFields((all) => [...all, emptyField()])}>
           + Add field
         </button>
+        <div className="preview">
+          <span className="eyebrow">Product names will look like</span>
+          <strong>{nameParts.length ? nameParts.join(' · ') : 'All product fields (tick “In name” to choose)'}</strong>
+        </div>
       </fieldset>
 
       {error && <p className="error" role="alert">{error}</p>}

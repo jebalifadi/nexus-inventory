@@ -26,11 +26,13 @@ export type CategoryField = {
   scope: FieldScope
   required: boolean
   choices: string[]
+  /** Place in the product name (0 = first); null when the field is shown as its own column. */
+  namePosition: number | null
 }
 
 export type Category = { id: number; name: string; trackingMode: TrackingMode; fields: CategoryField[] }
 
-export type NewField = Omit<CategoryField, 'id' | 'key'>
+export type NewField = Omit<CategoryField, 'id' | 'key' | 'namePosition'> & { inName: boolean }
 
 export type Product = {
   id: number
@@ -44,6 +46,33 @@ export type Location = { id: number; name: string; country: string }
 
 /** Money is sent as text so amounts are never rounded: { amount: "12.50", currency: "EUR" }. */
 export type Money = { amount: string; currency: string }
+
+export type UnitStatus =
+  | 'PURCHASED' | 'IN_TRANSIT' | 'IN_INVENTORY' | 'LISTED' | 'RESERVED'
+  | 'SOLD' | 'CLOSED' | 'RETURNED' | 'CANCELLED'
+
+/** One individually tracked piece, with its own item fields (serial number, battery…). */
+export type Unit = {
+  id: string
+  productId: number
+  locationId: number
+  status: UnitStatus
+  unitCost: Money
+  receivedDate: string
+  attributes: Record<string, string>
+}
+
+/** A batch of identical goods received together. */
+export type Lot = {
+  id: string
+  productId: number
+  locationId: number
+  quantityReceived: number
+  quantityRemaining: number
+  unitCost: Money
+  receivedDate: string
+  status: string
+}
 
 export type NewStock = {
   productId: number
@@ -192,8 +221,9 @@ export function receiveLot(stock: NewStock & { quantity: number }) {
   return request<unknown>('/api/v1/lots', { method: 'POST', body: JSON.stringify(stock) })
 }
 
-export function renameCategory(id: number, name: string) {
-  return request<Category>(`/api/v1/categories/${id}`, { method: 'PUT', body: JSON.stringify({ name }) })
+/** Renames a category and sets which fields form product names (keys, in order); names are rebuilt. */
+export function updateCategory(id: number, change: { name: string; nameFields: string[] }) {
+  return request<Category>(`/api/v1/categories/${id}`, { method: 'PUT', body: JSON.stringify(change) })
 }
 
 /** Soft delete: the category goes to the trash and can be restored. Refused while it has products. */
@@ -221,4 +251,20 @@ export function restoreProduct(id: number) {
 
 function reasonQuery(reason: string) {
   return reason.trim() ? `?reason=${encodeURIComponent(reason.trim())}` : ''
+}
+
+export function fetchUnits(): Promise<Unit[]> {
+  return request<Unit[]>('/api/v1/units')
+}
+
+export function fetchLots(): Promise<Lot[]> {
+  return request<Lot[]>('/api/v1/lots')
+}
+
+export function fetchProduct(id: number): Promise<Product> {
+  return request<Product>(`/api/v1/products/${id}`)
+}
+
+export function fetchCategory(id: number): Promise<Category> {
+  return request<Category>(`/api/v1/categories/${id}`)
 }

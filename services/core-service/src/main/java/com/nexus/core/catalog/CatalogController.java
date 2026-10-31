@@ -20,7 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 class CatalogController {
 
-    record NewField(String label, FieldType type, FieldScope scope, boolean required, List<String> choices) {
+    /** {@code required} and {@code inName} may be left out: missing means no. */
+    record NewField(String label, FieldType type, FieldScope scope, Boolean required, List<String> choices,
+                    Boolean inName) {
     }
 
     record NewCategory(String name, TrackingMode trackingMode, List<NewField> fields) {
@@ -29,7 +31,8 @@ class CatalogController {
     record NewProduct(Long categoryId, String sku, Map<String, String> attributes) {
     }
 
-    record CategoryChange(String name) {
+    /** {@code nameFields}: field keys forming the product name, in order; leave it out to keep them. */
+    record CategoryChange(String name, List<String> nameFields) {
     }
 
     record ProductChange(String sku, Map<String, String> attributes) {
@@ -45,7 +48,8 @@ class CatalogController {
     @ResponseStatus(HttpStatus.CREATED)
     Category createCategory(@RequestBody NewCategory request) {
         List<FieldDefinition> fields = request.fields() == null ? List.of() : request.fields().stream()
-                .map(f -> new FieldDefinition(f.label(), f.type(), f.scope(), f.required(), f.choices()))
+                .map(f -> new FieldDefinition(f.label(), f.type(), f.scope(), Boolean.TRUE.equals(f.required()),
+                        f.choices(), Boolean.TRUE.equals(f.inName())))
                 .toList();
         return catalog.createCategory(request.name(), request.trackingMode(), fields);
     }
@@ -60,10 +64,10 @@ class CatalogController {
         return catalog.getCategory(id);
     }
 
-    /** Renames a category; fields and tracking mode cannot change. */
+    /** Renames a category and optionally changes its name fields; fields and tracking mode cannot change. */
     @PutMapping("/categories/{id}")
-    Category renameCategory(@PathVariable("id") long id, @RequestBody CategoryChange request) {
-        return catalog.renameCategory(id, request.name());
+    Category updateCategory(@PathVariable("id") long id, @RequestBody CategoryChange request) {
+        return catalog.updateCategory(id, request.name(), request.nameFields());
     }
 
     @DeleteMapping("/categories/{id}")

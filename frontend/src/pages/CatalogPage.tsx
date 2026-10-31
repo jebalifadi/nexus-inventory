@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import * as api from '../api'
 import { useIsOwner } from '../auth'
-import { ActionForm, ConfirmDeleteDialog, Dialog } from '../components/Dialog'
-import { FieldInput } from '../components/FieldInput'
+import { columnFields, displayValue, nameFields } from '../catalog'
+import { ConfirmDeleteDialog } from '../components/Dialog'
+import { EditCategoryDialog } from '../components/EditCategoryDialog'
+import { EditProductDialog } from '../components/EditProductDialog'
 import { Layout } from '../components/Layout'
 
-type Data = { categories: api.Category[]; products: api.Product[] }
+type Data = { categories: api.Category[]; products: api.Product[]; stockByProduct: Map<number, number> }
 
 /** Which dialog is open, and for what. */
 type Open =
-  | { kind: 'renameCategory'; category: api.Category }
+  | { kind: 'editCategory'; category: api.Category }
   | { kind: 'deleteCategory'; category: api.Category }
   | { kind: 'editProduct'; product: api.Product; category: api.Category }
   | { kind: 'deleteProduct'; product: api.Product }
@@ -25,12 +27,17 @@ export function CatalogPage() {
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState<Open>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [search, setSearch] = useState('')
   const [reloads, setReloads] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.fetchCategories(), api.fetchProducts()])
-      .then(([categories, products]) => !cancelled && setData({ categories, products }))
+    Promise.all([api.fetchCategories(), api.fetchProducts(), api.fetchStock()])
+      .then(([categories, products, stock]) => {
+        const stockByProduct = new Map<number, number>()
+        for (const s of stock) stockByProduct.set(s.productId, (stockByProduct.get(s.productId) ?? 0) + s.quantity)
+        if (!cancelled) setData({ categories, products, stockByProduct })
+      })
       .catch((e: Error) => !cancelled && setError(e.message))
     return () => {
       cancelled = true
@@ -50,15 +57,28 @@ export function CatalogPage() {
     }
   }
 
+  const query = search.trim().toLowerCase()
+  const matches = (p: api.Product) =>
+    !query || `${p.sku} ${p.name} ${Object.values(p.attributes).join(' ')}`.toLowerCase().includes(query)
+
   return (
     <Layout>
       <div className="page-head">
         <h1>Catalog</h1>
-        {isOwner && (
-          <Link className="button" to="/stock/new">
-            New product
-          </Link>
-        )}
+        <div className="head-tools">
+          <input
+            type="search"
+            placeholder="Search SKU or name"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search catalog"
+          />
+          {isOwner && (
+            <Link className="button" to="/stock/new">
+              New product
+            </Link>
+          )}
+        </div>
       </div>
 
       {notice && (
@@ -90,25 +110,48 @@ export function CatalogPage() {
       )}
 
       {data?.categories.map((category) => {
-        const products = data.products
-          .filter((p) => p.categoryId === category.id)
-          .sort((a, b) => a.sku.localeCompare(b.sku))
+        const all = data.products.filter((p) => p.categoryId === category.id)
+        const products = all.filter(matches).sort((a, b) => a.name.localeCompare(b.name) || a.sku.localeCompare(b.sku))
+        if (query && products.length === 0) return null
+        const columns = columnFields(category)
+        const names = nameFields(category)
+        const pieces = all.reduce((sum, p) => sum + (data.stockByProduct.get(p.id) ?? 0), 0)
         return (
-          <section className="card section" key={category.id}>
-            <div className="section-head">
-              <div>
-                <h2>{category.name}</h2>
-                <p className="muted small">
-                  {category.trackingMode === 'UNIT' ? 'Counted one by one' : 'Counted by quantity'}
-                  {category.fields.length > 0 && ` · fields: ${category.fields.map((f) => f.label).join(', ')}`}
-                </p>
+          <section className="card table-card" key={category.id}>
+            <div className="card-head">
+              <div className="stack tight">
+                <div className="title-row">
+                  <h2>{category.name}</h2>
+                  <span className="badge">{category.trackingMode === 'UNIT' ? 'One by one' : 'By quantity'}</span>
+                  <span className="muted small">
+                    {all.length} {all.length === 1 ? 'product' : 'products'} · {pieces} in stock
+                  </span>
+                </div>
+                <div className="chips">
+                  <span className="muted">Name from</span>
+                  {names.length === 0 ? (
+                    <span className="muted">SKU</span>
+                  ) : (
+                    names.map((f, i) => (
+                      <span key={f.key} className="chip-wrap">
+                        {i > 0 && <span aria-hidden="true">·</span>}
+                        <span className="chip">{f.label}</span>
+                      </span>
+                    ))
+                  )}
+                  {isOwner && (
+                    <button className="link" onClick={() => setOpen({ kind: 'editCategory', category })}>
+                      Change
+                    </button>
+                  )}
+                </div>
               </div>
               {isOwner && (
                 <div className="actions">
-                  <button className="secondary" onClick={() => setOpen({ kind: 'renameCategory', category })}>
-                    Rename
+                  <button className="secondary small-btn" onClick={() => setOpen({ kind: 'editCategory', category })}>
+                    Edit category
                   </button>
-                  <button className="secondary danger-text" onClick={() => setOpen({ kind: 'deleteCategory', category })}>
+                  <button className="secondary small-btn danger-text" onClick={() => setOpen({ kind: 'deleteCategory', category })}>
                     Delete
                   </button>
                 </div>
@@ -116,7 +159,7 @@ export function CatalogPage() {
             </div>
 
             {products.length === 0 ? (
-              <p className="muted">No products in this category.</p>
+              <p className="muted pad">No products in this category yet.</p>
             ) : (
               <div className="table-wrap">
                 <table>
@@ -124,14 +167,30 @@ export function CatalogPage() {
                     <tr>
                       <th>SKU</th>
                       <th>Name</th>
-                      {isOwner && <th className="num">Actions</th>}
+                      {columns.map((f) => (
+                        <th key={f.key}>{f.label}</th>
+                      ))}
+                      <th className="num">In stock</th>
+                      {isOwner && (
+                        <th className="num">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {products.map((product) => (
                       <tr key={product.id}>
                         <td className="sku">{product.sku}</td>
-                        <td>{product.name}</td>
+                        <td>
+                          <Link className="name-link" to={`/products/${product.id}`}>
+                            {product.name}
+                          </Link>
+                        </td>
+                        {columns.map((f) => (
+                          <td key={f.key}>{displayValue(f, product.attributes[f.key])}</td>
+                        ))}
+                        <td className="num">{(data.stockByProduct.get(product.id) ?? 0).toLocaleString()}</td>
                         {isOwner && (
                           <td className="num row-actions">
                             <button className="secondary" onClick={() => setOpen({ kind: 'editProduct', product, category })}>
@@ -152,25 +211,16 @@ export function CatalogPage() {
         )
       })}
 
-      {open?.kind === 'renameCategory' && (
-        <Dialog title={`Rename “${open.category.name}”`} onClose={close}>
-          <ActionForm
-            submitLabel="Save"
-            busyLabel="Saving…"
-            onClose={close}
-            onSubmit={async (form) => {
-              await api.renameCategory(open.category.id, String(form.get('name')))
-              setNotice({ text: 'Category renamed.' })
-              reload()
-            }}
-          >
-            <label>
-              Name
-              <input name="name" defaultValue={open.category.name} maxLength={100} required autoFocus />
-            </label>
-            <p className="muted small">Fields and how stock is counted cannot change: existing products and stock depend on them.</p>
-          </ActionForm>
-        </Dialog>
+      {open?.kind === 'editCategory' && (
+        <EditCategoryDialog
+          category={open.category}
+          example={data?.products.find((p) => p.categoryId === open.category.id)}
+          onClose={close}
+          onSaved={(c) => {
+            setNotice({ text: `Saved category “${c.name}”.` })
+            reload()
+          }}
+        />
       )}
 
       {open?.kind === 'deleteCategory' && (
@@ -225,56 +275,5 @@ export function CatalogPage() {
         />
       )}
     </Layout>
-  )
-}
-
-type EditProps = {
-  product: api.Product
-  category: api.Category
-  onClose: () => void
-  onSaved: (product: api.Product) => void
-}
-
-/** Changes a product's SKU and product fields. Its category stays the same. */
-function EditProductDialog({ product, category, onClose, onSaved }: EditProps) {
-  const [sku, setSku] = useState(product.sku)
-  const [values, setValues] = useState<Record<string, string>>(product.attributes)
-  const productFields = category.fields.filter((f) => f.scope === 'PRODUCT')
-
-  return (
-    <Dialog title={`Edit ${product.sku}`} onClose={onClose}>
-      <ActionForm
-        submitLabel="Save"
-        busyLabel="Saving…"
-        onClose={onClose}
-        onSubmit={async () => {
-          const attributes = Object.fromEntries(
-            productFields.filter((f) => values[f.key]?.trim()).map((f) => [f.key, values[f.key]]),
-          )
-          onSaved(await api.updateProduct(product.id, { sku, attributes }))
-        }}
-      >
-        <p className="muted small">Category: {category.name} (cannot change). The name is rebuilt from the fields.</p>
-        <label>
-          SKU
-          <input
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-            pattern="[A-Za-z0-9._\-]+"
-            maxLength={64}
-            required
-            autoFocus
-          />
-        </label>
-        {productFields.map((field) => (
-          <FieldInput
-            key={field.key}
-            field={field}
-            value={values[field.key] ?? ''}
-            onChange={(value) => setValues((v) => ({ ...v, [field.key]: value }))}
-          />
-        ))}
-      </ActionForm>
-    </Dialog>
   )
 }

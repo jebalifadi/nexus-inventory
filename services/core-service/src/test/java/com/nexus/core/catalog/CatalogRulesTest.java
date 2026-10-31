@@ -34,11 +34,39 @@ class CatalogRulesTest {
     }
 
     @Test
-    void buildsProductNameFromProductFieldsInOrder() {
+    void withNoNameFieldMarkedEveryProductFieldFormsTheName() {
         Map<String, String> values = ProductRules.validateAttributes(PHONES,
                 Map.of("farbe", "Schwarz", "modell", "iPhone 14 Pro", "speicher", "128 GB"));
 
-        assertThat(ProductRules.buildName(PHONES, values)).isEqualTo("iPhone 14 Pro, 128 GB, Schwarz");
+        assertThat(ProductRules.buildName(PHONES, values)).isEqualTo("iPhone 14 Pro · 128 GB · Schwarz");
+    }
+
+    @Test
+    void onlyMarkedFieldsFormTheName() {
+        Category phones = new Category(2L, "Phones", TrackingMode.UNIT, CategoryRules.validate(
+                "Phones", TrackingMode.UNIT, List.of(
+                        new FieldDefinition("Modell", FieldType.TEXT, FieldScope.PRODUCT, true, null, true),
+                        new FieldDefinition("Farbe", FieldType.TEXT, FieldScope.PRODUCT, false, null),
+                        new FieldDefinition("Speicher", FieldType.TEXT, FieldScope.PRODUCT, true, null, true),
+                        new FieldDefinition("IMEI", FieldType.TEXT, FieldScope.ITEM, false, null))));
+
+        assertThat(phones.nameFields()).extracting(CategoryField::key).containsExactly("modell", "speicher");
+        assertThat(ProductRules.buildName(phones, Map.of("modell", "iPhone 13", "farbe", "Blau", "speicher", "128 GB")))
+                .isEqualTo("iPhone 13 · 128 GB");
+    }
+
+    @Test
+    void aPerPieceFieldCannotBePartOfTheName() {
+        assertThatThrownBy(() -> CategoryRules.validate("Phones", TrackingMode.UNIT, List.of(
+                new FieldDefinition("IMEI", FieldType.TEXT, FieldScope.ITEM, false, null, true))))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("cannot be part of the product name");
+        assertThatThrownBy(() -> CategoryRules.validateNameFields(PHONES, List.of("modell", "akku")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("cannot be part of the product name");
+        assertThatThrownBy(() -> CategoryRules.validateNameFields(PHONES, List.of("modell", "modell")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("twice");
     }
 
     @Test

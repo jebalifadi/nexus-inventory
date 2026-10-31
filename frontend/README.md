@@ -19,12 +19,18 @@ npm run lint    # oxlint
   closes) and is dropped when it expires or the backend rejects it.
 - `src/pages/`: one file per screen.
   - `LoginPage`: sign in.
-  - `InventoryPage`: stock per product and location, with SKU, search and totals.
-  - `CatalogPage`: categories with their products. The owner can rename or delete a category,
-    and edit (SKU, product fields) or delete a product. Deleting asks first and offers Undo,
+  - `InventoryPage`: stock per product and location, grouped by category, with each product field
+    as a labeled column, a location filter and search.
+  - `ProductPage` (`/products/:id`): a product's details, its stock per location, and its pieces
+    (units, with their per-piece fields, cost, location and status) or batches (lots).
+  - `CatalogPage`: categories with their products. The owner can edit a category (its name, and
+    which fields form product names, in order) or delete it, and edit (SKU, product fields) or
+    delete a product. Fields that are not part of the name are shown as their own columns. Deleting asks first and offers Undo,
     because deleted records go to the trash and can be restored.
   - `AddStockPage` (owner only): pick or create a product, then add stock to a location.
     Lot products take a quantity; unit products are added one piece at a time with their item fields.
+- `src/catalog.ts`: helpers shared by the screens: name fields vs column fields, money and date
+  formatting, unit status labels.
 - `src/components/`: pieces shared by screens: the top bar (`Layout`), modal dialogs and the
   delete confirmation (`Dialog`), an input for each
   category field type (`FieldInput`), and the small create forms for categories, products and

@@ -49,8 +49,26 @@ public class CatalogService {
      */
     @Transactional
     public Category renameCategory(long id, String name) {
-        getCategory(id);
+        return updateCategory(id, name, null);
+    }
+
+    /**
+     * Renames a category and, when {@code nameFields} is given, chooses which product fields form the
+     * product names, in order; the names of its products are rebuilt. Fields and tracking mode stay.
+     */
+    @Transactional
+    public Category updateCategory(long id, String name, List<String> nameFields) {
+        Category category = getCategory(id);
         repository.updateCategoryName(id, CategoryRules.validateName(name));
+        if (nameFields != null) {
+            repository.updateNameFields(id, CategoryRules.validateNameFields(category, nameFields));
+            Category updated = getCategory(id);
+            for (long productId : repository.findProductIdsByCategory(id)) {
+                String productName = ProductRules.buildName(updated, getProduct(productId).attributes());
+                repository.updateProductName(productId,
+                        productName.isEmpty() ? getProduct(productId).sku() : productName);
+            }
+        }
         return getCategory(id);
     }
 

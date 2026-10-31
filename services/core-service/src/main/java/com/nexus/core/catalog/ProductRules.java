@@ -63,12 +63,15 @@ final class ProductRules {
         return validated;
     }
 
-    /** Builds a readable product name from the product fields, for example "iPhone 14 Pro, 128 GB". */
+    /** Joins the parts of a product name, for example "iPhone 13 · 128 GB". */
+    static final String NAME_SEPARATOR = " · ";
+
+    /** Builds a product name from the category's name fields, in name order; empty when none is filled. */
     static String buildName(Category category, Map<String, String> attributes) {
-        return category.productFields().stream()
+        return category.nameFields().stream()
                 .map(field -> attributes.get(field.key()))
                 .filter(value -> value != null)
-                .collect(Collectors.joining(", "));
+                .collect(Collectors.joining(NAME_SEPARATOR));
     }
 
     private static String normalize(CategoryField field, String value) {

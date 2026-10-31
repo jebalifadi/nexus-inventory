@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import * as api from '../api'
 import { FieldInput } from '../components/FieldInput'
 import { Layout } from '../components/Layout'
@@ -16,11 +16,13 @@ type Data = {
 const today = () => new Date().toLocaleDateString('sv') // YYYY-MM-DD in the local time zone
 
 export function AddStockPage() {
+  // Opened from a product page ("Add pieces"): that product is chosen already.
+  const [searchParams] = useSearchParams()
   const [data, setData] = useState<Data | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   // Step 1: product
-  const [productId, setProductId] = useState<number | null>(null)
+  const [productId, setProductId] = useState<number | null>(() => Number(searchParams.get('product')) || null)
   const [creatingProduct, setCreatingProduct] = useState(false)
 
   // Step 2: stock
@@ -105,7 +107,11 @@ export function AddStockPage() {
     <Layout>
       <div className="page-head">
         <h1>Add stock</h1>
-        <Link to="/inventory">← Back to inventory</Link>
+        {product ? (
+          <Link to={`/products/${product.id}`}>← Back to {product.sku}</Link>
+        ) : (
+          <Link to="/inventory">← Back to inventory</Link>
+        )}
       </div>
 
       <section className="card section">

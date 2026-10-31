@@ -122,6 +122,26 @@ class StockRepository {
                 .update();
     }
 
+    /** What the goods still owned are worth at purchase cost, per currency (sold goods excluded). */
+    java.util.Map<String, java.math.BigDecimal> stockValueByCurrency() {
+        java.util.Map<String, java.math.BigDecimal> values = new java.util.TreeMap<>();
+        jdbc.sql("""
+                        SELECT currency, SUM(value) AS total FROM (
+                            SELECT unit_cost_currency AS currency, unit_cost_amount AS value
+                            FROM inventory_units
+                            WHERE deleted_at IS NULL AND status NOT IN ('SOLD', 'CLOSED', 'CANCELLED')
+                            UNION ALL
+                            SELECT unit_cost_currency, unit_cost_amount * quantity_remaining
+                            FROM inventory_lots
+                            WHERE deleted_at IS NULL AND status <> 'DEPLETED'
+                        ) v
+                        GROUP BY currency""")
+                .query((rs, n) -> Map.entry(rs.getString("currency").trim(), rs.getBigDecimal("total")))
+                .list()
+                .forEach(e -> values.put(e.getKey(), e.getValue()));
+        return values;
+    }
+
     void takeFromLot(long lotId, int quantity) {
         jdbc.sql("""
                         UPDATE inventory_lots

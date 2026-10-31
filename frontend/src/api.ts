@@ -268,3 +268,21 @@ export function fetchProduct(id: number): Promise<Product> {
 export function fetchCategory(id: number): Promise<Category> {
   return request<Category>(`/api/v1/categories/${id}`)
 }
+
+/** Soft delete of one piece: goes to the trash. Refused once sold or while in a shipment. */
+export function deleteUnit(id: string, reason: string) {
+  return request<void>(`/api/v1/units/${encodeURIComponent(id)}${reasonQuery(reason)}`, { method: 'DELETE' })
+}
+
+export function restoreUnit(id: string) {
+  return request<Unit>(`/api/v1/units/${encodeURIComponent(id)}/restore`, { method: 'POST' })
+}
+
+/** Soft delete of a batch: goes to the trash. Refused once part of it is sold or while in a shipment. */
+export function deleteLot(id: string, reason: string) {
+  return request<void>(`/api/v1/lots/${encodeURIComponent(id)}${reasonQuery(reason)}`, { method: 'DELETE' })
+}
+
+export function restoreLot(id: string) {
+  return request<Lot>(`/api/v1/lots/${encodeURIComponent(id)}/restore`, { method: 'POST' })
+}

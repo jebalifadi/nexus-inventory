@@ -225,3 +225,8 @@ input.check { width: 18px; height: 18px; accent-color: var(--accent); }
   .status-reserved { background: #3d2a12; color: #ffc27a; }
   .status-sold, .status-closed { background: #2a2e35; color: #c3c8d0; }
 }
+
+/* Reason choices in the remove dialog */
+.reason-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.reason-choices button { font-size: 13px; padding: 0.4rem 0.8rem; border-radius: 999px; }
+.reason-choices button[aria-pressed='true'] { background: var(--chip); border-color: var(--accent); color: var(--text); }

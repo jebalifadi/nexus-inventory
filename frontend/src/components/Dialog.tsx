@@ -35,26 +35,62 @@ type ConfirmProps = {
   title: string
   message: ReactNode
   confirmLabel: string
-  /** Runs the action with the optional reason; throw to show the error and keep the dialog open. */
+  /** Shown on the button while it runs; "Deleting…" by default. */
+  busyLabel?: string
+  /** Common reasons offered as one-tap choices; the person can still type their own. */
+  reasons?: string[]
+  /** The action needs a reason (it is kept in the trash with the record). */
+  requireReason?: boolean
+  /** Runs the action with the reason; throw to show the error and keep the dialog open. */
   onConfirm: (reason: string) => Promise<void>
   onClose: () => void
 }
 
-/** Asks "are you sure?" before deleting, with an optional reason kept in the trash. */
-export function ConfirmDeleteDialog({ title, message, confirmLabel, onConfirm, onClose }: ConfirmProps) {
+/** Asks "are you sure?" before deleting, with a reason kept in the trash. */
+export function ConfirmDeleteDialog({
+  title,
+  message,
+  confirmLabel,
+  busyLabel = 'Deleting…',
+  reasons = [],
+  requireReason = false,
+  onConfirm,
+  onClose,
+}: ConfirmProps) {
+  const [reason, setReason] = useState('')
+
   return (
     <Dialog title={title} onClose={onClose}>
-      <ActionForm
-        submitLabel={confirmLabel}
-        busyLabel="Deleting…"
-        danger
-        onSubmit={async (form) => onConfirm(String(form.get('reason') ?? ''))}
-        onClose={onClose}
-      >
+      <ActionForm submitLabel={confirmLabel} busyLabel={busyLabel} danger onSubmit={() => onConfirm(reason)} onClose={onClose}>
         <div className="muted">{message}</div>
+        {reasons.length > 0 && (
+          <div className="reason-choices" role="group" aria-label="Common reasons">
+            {reasons.map((r) => (
+              <button
+                key={r}
+                type="button"
+                className="secondary"
+                aria-pressed={reason === r}
+                onClick={() => setReason(r)}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        )}
         <label>
-          Reason <span className="muted">(optional, kept with the deleted record)</span>
-          <input name="reason" maxLength={255} placeholder="e.g. created by mistake" />
+          <span>
+            Reason{' '}
+            <span className="muted">{requireReason ? '(kept with the record in the trash)' : '(optional, kept with the deleted record)'}</span>
+          </span>
+          <input
+            name="reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={255}
+            required={requireReason}
+            placeholder={reasons.length ? 'Choose above or type your own' : 'e.g. created by mistake'}
+          />
         </label>
       </ActionForm>
     </Dialog>

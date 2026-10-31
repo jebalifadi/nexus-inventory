@@ -4,18 +4,19 @@
 country, stores them and sells them wherever it decides. Nexus tracks every product from
 purchase to sale, with its real cost and real profit.
 
-> **Status:** Phase 0 complete (v0.1.0). Next: Phase 1, core domain. See the [roadmap](#roadmap).
+> **Status:** Phase 1 (core domain) complete: catalog, stock, purchases, shipping, sales, payments,
+> expenses, exchange rates, warranty, cash, login with roles and audit log. See the [roadmap](#roadmap).
 
-## Features (planned)
+## Features
 
 - Catalog with owner-defined categories and fields (for example *Phones: Modell, Speicher, Farbe*)
 - Stock tracked as individual **units** (serial numbers) or **lots** (quantities), per warehouse
 - Purchases and sales with lines, partial payments and money owed
 - Real cost per item: FIFO stock costing and shared costs (shipping, customs) split fairly
-- Dashboard: stock, cash, money owed, profit, business value
+- Business overview: cash, stock, money owed, profit, business value (dashboard UI planned)
 - Several currencies, with exchange rates frozen on each transaction
-- Warranty claims, alerts, audit log
-- AI chat assistant that answers from live data and drafts entries for the owner to confirm
+- Warranty claims, returns and refunds; login with roles; append-only audit log (alerts planned)
+- AI chat assistant that answers from live data and drafts entries for the owner to confirm (planned)
 
 ## Tech stack
 

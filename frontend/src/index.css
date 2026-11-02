@@ -230,3 +230,25 @@ input.check { width: 18px; height: 18px; accent-color: var(--accent); }
 .reason-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .reason-choices button { font-size: 13px; padding: 0.4rem 0.8rem; border-radius: 999px; }
 .reason-choices button[aria-pressed='true'] { background: var(--chip); border-color: var(--accent); color: var(--text); }
+
+/* New category: one card per field, with an explicit "same / different for each piece" choice */
+.field-card { border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.7rem; background: var(--surface); }
+.field-card-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.subform .field-card-row > label { flex: 0 0 auto; }
+.subform .field-card-row > label.grow { flex: 1 1 200px; }
+.scope-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; }
+.subform .scope-choice label {
+  flex-direction: row; align-items: flex-start; gap: 0.6rem; font-weight: 400;
+  border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.75rem; cursor: pointer;
+}
+.subform .scope-choice label.selected { border-color: var(--accent); background: var(--chip); }
+.scope-choice input { width: auto; margin-top: 0.2rem; }
+.scope-choice span { display: flex; flex-direction: column; gap: 0.1rem; }
+.hint { margin: 0; color: var(--muted-strong); background: var(--bg); border-radius: 6px; padding: 0.45rem 0.65rem; }
+.align-start { align-self: flex-start; }
+.placement { margin: 0.25rem 0 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.placement > div { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+.placement dt { min-width: 160px; color: var(--muted); font-size: 13px; }
+.placement dd { margin: 0; }
+.warning-text { color: #8a4b00; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .warning-text { color: #ffc27a; } }

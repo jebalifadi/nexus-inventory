@@ -18,7 +18,22 @@ type Data = {
 
 type Filter = 'held' | 'sold' | 'all'
 
+/** Which dialog is open, and for what. */
+type Open =
+  | { kind: 'edit' }
+  | { kind: 'delete' }
+  | { kind: 'removeUnit'; unit: api.Unit }
+  | { kind: 'removeLot'; lot: api.Lot }
+  | null
+
 const SOLD_STATUSES: api.UnitStatus[] = ['SOLD', 'CLOSED']
+
+/** Offered as one-tap reasons when removing a piece or a batch. */
+const REMOVE_REASONS = ['Created by mistake', 'Damaged', 'Lost']
+
+/** Same rules as the backend: sold or travelling pieces stay; a batch with sales stays. */
+const canRemoveUnit = (u: api.Unit) => !['SOLD', 'CLOSED', 'IN_TRANSIT'].includes(u.status)
+const canRemoveLot = (l: api.Lot) => l.quantityRemaining === l.quantityReceived && l.status !== 'IN_TRANSIT'
 
 export function ProductPage() {
   const id = Number(useParams().id)
@@ -27,7 +42,8 @@ export function ProductPage() {
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('held')
-  const [open, setOpen] = useState<'edit' | 'delete' | null>(null)
+  const [open, setOpen] = useState<Open>(null)
+  const [notice, setNotice] = useState<{ text: string; undo?: () => Promise<unknown> } | null>(null)
   const [reloads, setReloads] = useState(0)
 
   useEffect(() => {
@@ -83,6 +99,17 @@ export function ProductPage() {
   const pieceFields = itemFields(category)
   const inStock = stock.reduce((sum, s) => sum + s.quantity, 0)
   const location = (locationId: number) => locations.get(locationId) ?? '—'
+  const reload = () => setReloads((n) => n + 1)
+
+  async function undo() {
+    try {
+      await notice?.undo?.()
+      setNotice({ text: 'Restored.' })
+      reload()
+    } catch (e) {
+      setNotice({ text: (e as Error).message })
+    }
+  }
 
   const held = units.filter((u) => HELD_STATUSES.includes(u.status))
   const sold = units.filter((u) => SOLD_STATUSES.includes(u.status))
@@ -110,10 +137,10 @@ export function ProductPage() {
         </div>
         {isOwner && (
           <div className="actions wrap">
-            <button className="secondary" onClick={() => setOpen('edit')}>
+            <button className="secondary" onClick={() => setOpen({ kind: 'edit' })}>
               Edit
             </button>
-            <button className="secondary danger-text" onClick={() => setOpen('delete')}>
+            <button className="secondary danger-text" onClick={() => setOpen({ kind: 'delete' })}>
               Delete
             </button>
             <Link className="button" to={`/stock/new?product=${product.id}`}>
@@ -122,6 +149,20 @@ export function ProductPage() {
           </div>
         )}
       </div>
+
+      {notice && (
+        <div className="card notice" role="status">
+          <span>{notice.text}</span>
+          {notice.undo && (
+            <button className="secondary" onClick={undo}>
+              Undo
+            </button>
+          )}
+          <button className="secondary icon" aria-label="Dismiss" onClick={() => setNotice(null)}>
+            ×
+          </button>
+        </div>
+      )}
 
       <div className="summary-grid">
         <section className="card section">
@@ -202,6 +243,11 @@ export function ProductPage() {
                     <th>Location</th>
                     <th>Status</th>
                     <th>Received</th>
+                    {isOwner && (
+                      <th className="num">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -218,6 +264,15 @@ export function ProductPage() {
                         <span className={`status status-${u.status.toLowerCase()}`}>{STATUS_LABELS[u.status]}</span>
                       </td>
                       <td className="muted-strong nowrap">{formatDate(u.receivedDate)}</td>
+                      {isOwner && (
+                        <td className="num row-actions">
+                          {canRemoveUnit(u) && (
+                            <button className="secondary danger-text" onClick={() => setOpen({ kind: 'removeUnit', unit: u })}>
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -237,6 +292,11 @@ export function ProductPage() {
                   <th className="num">Cost each</th>
                   <th>Location</th>
                   <th>Received on</th>
+                  {isOwner && (
+                    <th className="num">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -248,6 +308,15 @@ export function ProductPage() {
                     <td className="num">{formatMoney(l.unitCost)}</td>
                     <td className="muted-strong">{location(l.locationId)}</td>
                     <td className="muted-strong nowrap">{formatDate(l.receivedDate)}</td>
+                    {isOwner && (
+                      <td className="num row-actions">
+                        {canRemoveLot(l) && (
+                          <button className="secondary danger-text" onClick={() => setOpen({ kind: 'removeLot', lot: l })}>
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -256,15 +325,15 @@ export function ProductPage() {
         )}
       </section>
 
-      {open === 'edit' && (
+      {open?.kind === 'edit' && (
         <EditProductDialog
           product={product}
           category={category}
           onClose={() => setOpen(null)}
-          onSaved={() => setReloads((n) => n + 1)}
+          onSaved={reload}
         />
       )}
-      {open === 'delete' && (
+      {open?.kind === 'delete' && (
         <ConfirmDeleteDialog
           title={`Delete product ${product.sku}?`}
           confirmLabel="Delete product"
@@ -281,6 +350,59 @@ export function ProductPage() {
           }}
         />
       )}
+      {open?.kind === 'removeUnit' && (
+        <ConfirmDeleteDialog
+          title="Remove this piece?"
+          confirmLabel="Remove piece"
+          busyLabel="Removing…"
+          reasons={REMOVE_REASONS}
+          requireReason
+          message={
+            <p>
+              {pieceSummary(open.unit, pieceFields)} ({formatMoney(open.unit.unitCost)}, {location(open.unit.locationId)}) leaves
+              the stock and moves to the trash, where it can be restored.
+            </p>
+          }
+          onClose={() => setOpen(null)}
+          onConfirm={async (reason) => {
+            const { id } = open.unit
+            await api.deleteUnit(id, reason)
+            setNotice({ text: `Removed piece ${id} (${reason}).`, undo: () => api.restoreUnit(id) })
+            reload()
+          }}
+        />
+      )}
+      {open?.kind === 'removeLot' && (
+        <ConfirmDeleteDialog
+          title={`Remove batch ${open.lot.id}?`}
+          confirmLabel="Remove batch"
+          busyLabel="Removing…"
+          reasons={REMOVE_REASONS}
+          requireReason
+          message={
+            <p>
+              All {open.lot.quantityRemaining.toLocaleString()} pieces of this batch ({formatMoney(open.lot.unitCost)} each,{' '}
+              {location(open.lot.locationId)}) leave the stock and move to the trash, where they can be restored.
+            </p>
+          }
+          onClose={() => setOpen(null)}
+          onConfirm={async (reason) => {
+            const { id } = open.lot
+            await api.deleteLot(id, reason)
+            setNotice({ text: `Removed batch ${id} (${reason}).`, undo: () => api.restoreLot(id) })
+            reload()
+          }}
+        />
+      )}
     </Layout>
   )
+}
+
+/** "Piece U-000001 · Serial number 3569…, Battery 91": its id and first filled-in details. */
+function pieceSummary(unit: api.Unit, fields: api.CategoryField[]): string {
+  const parts = fields
+    .filter((f) => unit.attributes[f.key])
+    .slice(0, 2)
+    .map((f) => `${f.label} ${displayValue(f, unit.attributes[f.key])}`)
+  return parts.length ? `Piece ${unit.id} · ${parts.join(', ')}` : `Piece ${unit.id}`
 }

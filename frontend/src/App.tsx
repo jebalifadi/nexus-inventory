@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider, RequireAuth, RequireOwner } from './auth'
 import { AddStockPage } from './pages/AddStockPage'
 import { CatalogPage } from './pages/CatalogPage'
+import { ExpensesPage } from './pages/ExpensesPage'
 import { ProductPage } from './pages/ProductPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { LoginPage } from './pages/LoginPage'
@@ -60,6 +61,14 @@ export default function App() {
               <RequireOwner>
                 <NewSalePage />
               </RequireOwner>
+            }
+          />
+          <Route
+            path="/expenses"
+            element={
+              <RequireAuth>
+                <ExpensesPage />
+              </RequireAuth>
             }
           />
           <Route path="*" element={<Navigate to="/inventory" replace />} />

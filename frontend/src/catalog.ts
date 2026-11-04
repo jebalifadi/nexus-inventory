@@ -1,5 +1,18 @@
 // Small helpers shared by the catalog, inventory and product screens.
-import type { Category, CategoryField, Money, PaymentMethod, PaymentStatus, UnitStatus } from './api'
+import type { Category, CategoryField, ExpenseCategory, Money, PaymentMethod, PaymentStatus, UnitStatus } from './api'
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  SHIPPING: 'Shipping',
+  REPAIR: 'Repair',
+  TRANSPORT: 'Transport',
+  CUSTOMS: 'Customs',
+  PAYMENT_FEES: 'Payment fees',
+  PLATFORM_FEES: 'Platform fees',
+  PACKAGING: 'Packaging',
+  PARTS: 'Parts',
+  WARRANTY: 'Warranty',
+  OTHER: 'Other',
+}
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Cash',

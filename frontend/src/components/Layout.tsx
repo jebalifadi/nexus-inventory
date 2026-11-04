@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router'
-import { useAuth, useIsOwner } from '../auth'
+import { useAuth } from '../auth'
 
 /** The top bar with navigation and the logged-in user, around every screen after login. */
 export function Layout({ children }: { children: ReactNode }) {
   const { session, logout } = useAuth()
-  const isOwner = useIsOwner()
 
   return (
     <>
@@ -16,7 +15,7 @@ export function Layout({ children }: { children: ReactNode }) {
             Inventory
           </NavLink>
           <NavLink to="/catalog">Catalog</NavLink>
-          {isOwner && <NavLink to="/stock/new">Add stock</NavLink>}
+          <NavLink to="/sales">Sales</NavLink>
         </nav>
         <span className="muted user">
           {session?.username} · {session?.roles.join(', ').toLowerCase()}

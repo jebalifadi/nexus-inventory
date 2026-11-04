@@ -5,6 +5,8 @@ import { CatalogPage } from './pages/CatalogPage'
 import { ProductPage } from './pages/ProductPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { LoginPage } from './pages/LoginPage'
+import { NewSalePage } from './pages/NewSalePage'
+import { SalesPage } from './pages/SalesPage'
 
 export default function App() {
   return (
@@ -41,6 +43,22 @@ export default function App() {
             element={
               <RequireOwner>
                 <AddStockPage />
+              </RequireOwner>
+            }
+          />
+          <Route
+            path="/sales"
+            element={
+              <RequireAuth>
+                <SalesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/sales/new"
+            element={
+              <RequireOwner>
+                <NewSalePage />
               </RequireOwner>
             }
           />

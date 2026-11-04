@@ -97,7 +97,7 @@ export function InventoryPage() {
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search inventory"
           />
-          {isOwner && (
+          {isOwner && hasStock && (
             <Link className="button" to="/stock/new">
               Add stock
             </Link>

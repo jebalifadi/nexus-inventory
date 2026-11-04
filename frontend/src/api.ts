@@ -379,3 +379,35 @@ export function recordSalePayment(
     body: JSON.stringify(payment),
   })
 }
+
+// --- Expenses --------------------------------------------------------------
+
+export type ExpenseCategory =
+  | 'SHIPPING' | 'REPAIR' | 'TRANSPORT' | 'CUSTOMS' | 'PAYMENT_FEES'
+  | 'PLATFORM_FEES' | 'PACKAGING' | 'PARTS' | 'WARRANTY' | 'OTHER'
+
+/** On a piece it adds to that piece's cost; on a sale it lowers that sale's profit; with neither it is a general cost. */
+export type Expense = {
+  id: string
+  category: ExpenseCategory
+  amount: Money
+  expenseDate: string
+  description: string | null
+  unitId: string | null
+  saleId: string | null
+}
+
+export function fetchExpenses(): Promise<Expense[]> {
+  return request<Expense[]>('/api/v1/expenses')
+}
+
+export function createExpense(expense: {
+  category: ExpenseCategory
+  amount: Money
+  expenseDate: string
+  description: string
+  unitId?: string
+  saleId?: string
+}) {
+  return request<Expense>('/api/v1/expenses', { method: 'POST', body: JSON.stringify(expense) })
+}

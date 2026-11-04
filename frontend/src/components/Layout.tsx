@@ -16,6 +16,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </NavLink>
           <NavLink to="/catalog">Catalog</NavLink>
           <NavLink to="/sales">Sales</NavLink>
+          <NavLink to="/expenses">Expenses</NavLink>
         </nav>
         <span className="muted user">
           {session?.username} · {session?.roles.join(', ').toLowerCase()}

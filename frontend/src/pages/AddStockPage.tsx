@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import * as api from '../api'
+import { currencyDecimals, currencyStep } from '../catalog'
 import { FieldInput } from '../components/FieldInput'
 import { Layout } from '../components/Layout'
 import { NewLocationForm } from '../components/NewLocationForm'
@@ -205,11 +206,11 @@ export function AddStockPage() {
                 <input
                   type="number"
                   min={0}
-                  step="0.01"
+                  step={currencyStep(currency)}
                   inputMode="decimal"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
+                  placeholder={(0).toFixed(currencyDecimals(currency))}
                   required
                 />
               </label>
@@ -241,7 +242,16 @@ export function AddStockPage() {
             {done && <p className="success" role="status">{done}</p>}
 
             <div className="actions">
-              <button type="submit" disabled={busy || !location}>
+              <button
+                type="submit"
+                disabled={busy || !location}
+                onClick={() => {
+                  // On click, not on submit: the browser skips submit when a field is invalid,
+                  // and an old "Added…" message must not look like this attempt worked.
+                  setDone(null)
+                  setError(null)
+                }}
+              >
                 {busy ? 'Saving…' : isUnit ? 'Add this piece' : 'Add to stock'}
               </button>
             </div>

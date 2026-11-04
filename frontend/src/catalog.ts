@@ -1,5 +1,37 @@
 // Small helpers shared by the catalog, inventory and product screens.
-import type { Category, CategoryField, Money, UnitStatus } from './api'
+import type { Category, CategoryField, Money, PaymentMethod, PaymentStatus, UnitStatus } from './api'
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Cash',
+  BANK_TRANSFER: 'Bank transfer',
+  CARD: 'Card',
+  PAYPAL: 'PayPal',
+  OTHER: 'Other',
+}
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  PENDING: 'Not paid',
+  PARTIALLY_PAID: 'Part paid',
+  PAID: 'Paid',
+}
+
+/** How many decimals a currency has: EUR 2, TND 3, JPY 0. The backend rounds amounts to this. */
+export function currencyDecimals(currency: string): number {
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
+  } catch {
+    return 2
+  }
+}
+
+/** The smallest amount of a currency, for number inputs: "0.01" for EUR, "0.001" for TND, "1" for JPY. */
+export function currencyStep(currency: string): string {
+  const decimals = currencyDecimals(currency)
+  return decimals === 0 ? '1' : `0.${'0'.repeat(decimals - 1)}1`
+}
+
+/** Today as YYYY-MM-DD in the local time zone. */
+export const today = () => new Date().toLocaleDateString('sv')
 
 /** The fields that form a product's name, in name order (e.g. Model, Storage). */
 export function nameFields(category: Category): CategoryField[] {

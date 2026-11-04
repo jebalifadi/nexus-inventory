@@ -286,3 +286,96 @@ export function deleteLot(id: string, reason: string) {
 export function restoreLot(id: string) {
   return request<Lot>(`/api/v1/lots/${encodeURIComponent(id)}/restore`, { method: 'POST' })
 }
+
+// --- Sales -----------------------------------------------------------------
+
+export type Customer = {
+  id: number
+  name: string
+  phone: string | null
+  email: string | null
+  country: string | null
+  notes: string | null
+}
+
+export type PaymentStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID'
+export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD' | 'PAYPAL' | 'OTHER'
+
+export type SaleLine = {
+  lineNo: number
+  productId: number
+  unitId: string | null
+  quantity: number
+  returnedQuantity: number
+  unitPrice: Money
+  lineTotal: Money
+  /** Empty when the costs are in another currency and no exchange rate is known yet. */
+  cost: Money | null
+  profit: Money | null
+  warrantyDays: number
+  warrantyEndDate: string | null
+}
+
+export type Sale = {
+  id: string
+  customerId: number | null
+  customerName: string | null
+  locationId: number
+  saleDate: string
+  currency: string
+  notes: string | null
+  lines: SaleLine[]
+  total: Money
+  returns: Money
+  saleExpenses: Money | null
+  profit: Money | null
+  /** Says why the profit is empty, for example a missing exchange rate. */
+  profitUnknownReason: string | null
+  paid: Money
+  balance: Money
+  paymentStatus: PaymentStatus
+}
+
+/** Pieces tracked one by one give a unitId; goods counted by quantity give a productId and quantity. */
+export type NewSaleLine = {
+  unitId?: string
+  productId?: number
+  quantity?: number
+  unitPrice: string
+  warrantyDays?: number
+}
+
+export function fetchCustomers(): Promise<Customer[]> {
+  return request<Customer[]>('/api/v1/customers')
+}
+
+export function createCustomer(customer: { name: string; phone: string }) {
+  return request<Customer>('/api/v1/customers', { method: 'POST', body: JSON.stringify(customer) })
+}
+
+export function fetchSales(): Promise<Sale[]> {
+  return request<Sale[]>('/api/v1/sales')
+}
+
+/** All or nothing: takes the goods out of stock and freezes their cost. If one line is wrong, nothing is saved. */
+export function createSale(sale: {
+  customerId: number | null
+  locationId: number
+  saleDate: string
+  currency: string
+  notes: string
+  lines: NewSaleLine[]
+}) {
+  return request<Sale>('/api/v1/sales', { method: 'POST', body: JSON.stringify(sale) })
+}
+
+/** Paying more than what is still owed is refused. */
+export function recordSalePayment(
+  saleId: string,
+  payment: { amount: Money; paymentDate: string; method: PaymentMethod },
+) {
+  return request<unknown>(`/api/v1/sales/${encodeURIComponent(saleId)}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(payment),
+  })
+}

@@ -59,6 +59,7 @@ update. Backups go to `~/Documents/nexus-backups` and the newest 30 are kept.
 scripts/backup.sh                         # save a backup now
 scripts/restore.sh                        # list backups
 scripts/restore.sh <file>                 # restore one (stop Nexus first; asks, and backs up the current data)
+scripts/reset.sh                          # empty Nexus to start from the beginning (stop Nexus first; asks, backs up first)
 ```
 
 Your data lives in a Docker volume. `docker compose down -v` deletes it for good, so copy the

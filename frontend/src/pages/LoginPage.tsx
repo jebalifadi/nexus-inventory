@@ -12,7 +12,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
 
   // Where to go after login: the page the user wanted, or the inventory.
-  const from = (location.state as { from?: string } | null)?.from ?? '/inventory'
+  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
 
   if (session) return <Navigate to={from} replace />
 

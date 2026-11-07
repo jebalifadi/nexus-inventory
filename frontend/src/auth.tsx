@@ -56,8 +56,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return children
 }
 
-/** Like RequireAuth, but for owner-only screens: viewers are sent back to the inventory. */
+/** Like RequireAuth, but for owner-only screens: viewers are sent back to the dashboard. */
 export function RequireOwner({ children }: { children: ReactNode }) {
   const isOwner = useIsOwner()
-  return <RequireAuth>{isOwner ? children : <Navigate to="/inventory" replace />}</RequireAuth>
+  return <RequireAuth>{isOwner ? children : <Navigate to="/dashboard" replace />}</RequireAuth>
 }

@@ -1,4 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { AdminPage } from './pages/AdminPage'
+import { CashBookPage } from './pages/CashBookPage'
+import { ContactsPage } from './pages/ContactsPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { NewPurchasePage } from './pages/NewPurchasePage'
+import { PurchasesPage } from './pages/PurchasesPage'
+import { ShipmentsPage } from './pages/ShipmentsPage'
+import { WarrantyPage } from './pages/WarrantyPage'
 import { AuthProvider, RequireAuth, RequireOwner } from './auth'
 import { AddStockPage } from './pages/AddStockPage'
 import { CapitalPage } from './pages/CapitalPage'
@@ -89,7 +97,71 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="*" element={<Navigate to="/inventory" replace />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <DashboardPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/purchases"
+            element={
+              <RequireAuth>
+                <PurchasesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/purchases/new"
+            element={
+              <RequireOwner>
+                <NewPurchasePage />
+              </RequireOwner>
+            }
+          />
+          <Route
+            path="/shipments"
+            element={
+              <RequireAuth>
+                <ShipmentsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/warranty"
+            element={
+              <RequireAuth>
+                <WarrantyPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/cash-book"
+            element={
+              <RequireAuth>
+                <CashBookPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <RequireAuth>
+                <ContactsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RequireOwner>
+                <AdminPage />
+              </RequireOwner>
+            }
+          />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

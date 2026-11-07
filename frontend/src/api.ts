@@ -475,3 +475,245 @@ export function fetchCashBook(): Promise<CashMovement[]> {
 export function recordCapital(movement: { type: CapitalType; amount: Money; date: string }) {
   return request<{ id: string }>('/api/v1/capital', { method: 'POST', body: JSON.stringify(movement) })
 }
+
+export function recordCurrencyExchange(exchange: { from: Money; to: Money; date: string; notes: string }) {
+  return request<{ id: string }>('/api/v1/currency-exchanges', { method: 'POST', body: JSON.stringify(exchange) })
+}
+
+// --- Purchases -------------------------------------------------------------
+
+export type Supplier = { id: number; name: string; country: string | null; contact: string | null; notes: string | null }
+
+export type PurchaseLine = {
+  lineNo: number
+  productId: number
+  locationId: number
+  quantity: number
+  unitPrice: Money
+  lineTotal: Money
+  /** The pieces this line put into stock (goods tracked one by one). */
+  unitIds: string[]
+  /** The batch this line put into stock (goods counted by quantity). */
+  lotId: string | null
+}
+
+export type Purchase = {
+  id: string
+  supplierId: number
+  supplierName: string
+  purchaseDate: string
+  currency: string
+  notes: string | null
+  lines: PurchaseLine[]
+  total: Money
+  paid: Money
+  balance: Money
+  paymentStatus: PaymentStatus
+}
+
+/** Pieces tracked one by one give `items` (one entry of item fields per piece); others give a quantity. */
+export type NewPurchaseLine = {
+  productId: number
+  locationId: number
+  quantity: number
+  unitPrice: string
+  items?: Record<string, string>[]
+}
+
+export function fetchSuppliers(): Promise<Supplier[]> {
+  return request<Supplier[]>('/api/v1/suppliers')
+}
+
+export function createSupplier(supplier: { name: string; country: string; contact: string; notes: string }) {
+  return request<Supplier>('/api/v1/suppliers', { method: 'POST', body: JSON.stringify(supplier) })
+}
+
+export function fetchPurchases(): Promise<Purchase[]> {
+  return request<Purchase[]>('/api/v1/purchases')
+}
+
+/** All or nothing: saves the purchase and puts its goods into stock. If one line is wrong, nothing is saved. */
+export function createPurchase(purchase: {
+  supplierId: number
+  purchaseDate: string
+  currency: string
+  notes: string
+  lines: NewPurchaseLine[]
+}) {
+  return request<Purchase>('/api/v1/purchases', { method: 'POST', body: JSON.stringify(purchase) })
+}
+
+/** Paying more than what is still owed to the supplier is refused. */
+export function recordPurchasePayment(
+  purchaseId: string,
+  payment: { amount: Money; paymentDate: string; method: PaymentMethod },
+) {
+  return request<unknown>(`/api/v1/purchases/${encodeURIComponent(purchaseId)}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(payment),
+  })
+}
+
+/** A sale someone still owes you for (receivable), or a purchase you still owe a supplier for (payable). */
+export type OpenBalance = {
+  reference: string
+  counterparty: string | null
+  date: string
+  daysOpen: number
+  total: Money
+  paid: Money
+  balance: Money
+}
+
+export function fetchReceivables(): Promise<OpenBalance[]> {
+  return request<OpenBalance[]>('/api/v1/receivables')
+}
+
+export function fetchPayables(): Promise<OpenBalance[]> {
+  return request<OpenBalance[]>('/api/v1/payables')
+}
+
+// --- Shipments -------------------------------------------------------------
+
+/** BY_VALUE: dearer pieces carry more of the cost. BY_QUANTITY: the same share for every piece. */
+export type AllocationMethod = 'BY_VALUE' | 'BY_QUANTITY'
+
+export type ShipmentItem = {
+  id: string
+  quantity: number
+  purchaseCost: Money
+  shippingCost: Money
+  /** Empty when purchase and shipping are in different currencies and no exchange rate is known yet. */
+  landedUnitCost: Money | null
+}
+
+export type Shipment = {
+  id: string
+  fromLocationId: number
+  toLocationId: number
+  carrier: string | null
+  trackingNumber: string | null
+  cost: Money
+  allocationMethod: AllocationMethod
+  status: 'IN_TRANSIT' | 'ARRIVED'
+  shippedDate: string
+  arrivedDate: string | null
+  items: ShipmentItem[]
+}
+
+export function fetchShipments(): Promise<Shipment[]> {
+  return request<Shipment[]>('/api/v1/shipments')
+}
+
+/** The goods go "in transit" until the shipment is marked as arrived. */
+export function createShipment(shipment: {
+  fromLocationId: number
+  toLocationId: number
+  carrier: string
+  trackingNumber: string
+  cost: Money
+  allocationMethod: AllocationMethod
+  shippedDate: string
+  unitIds: string[]
+  lotIds: string[]
+}) {
+  return request<Shipment>('/api/v1/shipments', { method: 'POST', body: JSON.stringify(shipment) })
+}
+
+export function markShipmentArrived(id: string, arrivedDate: string) {
+  return request<Shipment>(`/api/v1/shipments/${encodeURIComponent(id)}/arrive`, {
+    method: 'POST',
+    body: JSON.stringify({ arrivedDate }),
+  })
+}
+
+// --- Warranty --------------------------------------------------------------
+
+export type ClaimStatus = 'OPEN' | 'RESOLVED' | 'REJECTED'
+export type ClaimResolution = 'REPAIRED' | 'REPLACED' | 'REFUNDED' | 'REJECTED'
+
+export type WarrantyClaim = {
+  id: string
+  saleId: string
+  lineNo: number
+  unitId: string | null
+  quantity: number
+  claimDate: string
+  issue: string
+  withinWarranty: boolean
+  warrantyEndDate: string | null
+  goodwillReason: string | null
+  status: ClaimStatus
+  resolution: ClaimResolution | null
+  cost: Money | null
+  refund: Money | null
+  resolvedDate: string | null
+  notes: string | null
+}
+
+export function fetchWarrantyClaims(): Promise<WarrantyClaim[]> {
+  return request<WarrantyClaim[]>('/api/v1/warranty-claims')
+}
+
+/** Outside the warranty period, a goodwill reason is needed. */
+export function openWarrantyClaim(claim: {
+  saleId: string
+  lineNo: number
+  quantity: number
+  claimDate: string
+  issue: string
+  goodwillReason: string
+}) {
+  return request<WarrantyClaim>('/api/v1/warranty-claims', { method: 'POST', body: JSON.stringify(claim) })
+}
+
+/**
+ * `cost` (optional) is what the business spent, e.g. the repair; it lowers the sale's profit.
+ * REFUNDED also takes the goods back into stock and gives back what the customer paid for them.
+ */
+export function resolveWarrantyClaim(
+  id: string,
+  resolution: { resolution: ClaimResolution; cost: Money | null; resolvedDate: string; notes: string },
+) {
+  return request<WarrantyClaim>(`/api/v1/warranty-claims/${encodeURIComponent(id)}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify(resolution),
+  })
+}
+
+export function rejectWarrantyClaim(id: string, rejection: { resolvedDate: string; notes: string }) {
+  return request<WarrantyClaim>(`/api/v1/warranty-claims/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify(rejection),
+  })
+}
+
+// --- Admin -----------------------------------------------------------------
+
+export type TrashType = 'CATEGORY' | 'PRODUCT' | 'LOCATION' | 'UNIT' | 'LOT'
+export type TrashItem = { type: TrashType; id: number; name: string; deletedAt: string; reason: string | null }
+
+export function fetchTrash(): Promise<TrashItem[]> {
+  return request<TrashItem[]>('/api/v1/trash')
+}
+
+export function restoreLocation(id: number) {
+  return request<Location>(`/api/v1/locations/${id}/restore`, { method: 'POST' })
+}
+
+export type Role = 'OWNER' | 'VIEWER'
+export type User = { id: number; username: string; role: Role; active: boolean }
+
+export function fetchUsers(): Promise<User[]> {
+  return request<User[]>('/api/v1/users')
+}
+
+export function createUser(user: { username: string; password: string; role: Role }) {
+  return request<User>('/api/v1/users', { method: 'POST', body: JSON.stringify(user) })
+}
+
+export type AuditEntry = { id: number; occurredAt: string; username: string; method: string; path: string; status: number }
+
+export function fetchAudit(limit = 200): Promise<AuditEntry[]> {
+  return request<AuditEntry[]>(`/api/v1/audit?limit=${limit}`)
+}

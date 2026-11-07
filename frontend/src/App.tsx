@@ -1,7 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider, RequireAuth, RequireOwner } from './auth'
 import { AddStockPage } from './pages/AddStockPage'
+import { CapitalPage } from './pages/CapitalPage'
 import { CatalogPage } from './pages/CatalogPage'
+import { ExchangeRatesPage } from './pages/ExchangeRatesPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { ProductPage } from './pages/ProductPage'
 import { InventoryPage } from './pages/InventoryPage'
@@ -68,6 +70,22 @@ export default function App() {
             element={
               <RequireAuth>
                 <ExpensesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/exchange-rates"
+            element={
+              <RequireAuth>
+                <ExchangeRatesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/capital"
+            element={
+              <RequireAuth>
+                <CapitalPage />
               </RequireAuth>
             }
           />

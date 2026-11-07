@@ -411,3 +411,67 @@ export function createExpense(expense: {
 }) {
   return request<Expense>('/api/v1/expenses', { method: 'POST', body: JSON.stringify(expense) })
 }
+
+// --- Exchange rates --------------------------------------------------------
+
+/** 1 base = rate quote, valid from rateDate until the next rate for the same currencies. */
+export type ExchangeRate = {
+  id: number
+  base: string
+  quote: string
+  rate: number
+  rateDate: string
+  source: string
+}
+
+export function fetchExchangeRates(): Promise<ExchangeRate[]> {
+  return request<ExchangeRate[]>('/api/v1/exchange-rates')
+}
+
+/** The rate goes as text so it is never rounded on the way. */
+export function createExchangeRate(rate: { base: string; quote: string; rate: string; rateDate: string }) {
+  return request<ExchangeRate>('/api/v1/exchange-rates', { method: 'POST', body: JSON.stringify(rate) })
+}
+
+// --- Cash and capital ------------------------------------------------------
+
+export type CapitalType = 'OPENING_BALANCE' | 'CAPITAL_ADDED' | 'CAPITAL_WITHDRAWN' | 'PROFIT_WITHDRAWN'
+
+/** What the owner put in and took out, per currency. Kept apart from profit: putting money in is not earning it. */
+export type CapitalSummary = {
+  currency: string
+  added: Money
+  withdrawn: Money
+  netContribution: Money
+  profitWithdrawn: Money
+}
+
+/** The business in one currency. Cash is never typed in: it is calculated from every movement. */
+export type CurrencyPosition = {
+  currency: string
+  cash: Money
+  stockValue: Money
+  receivables: Money
+  payables: Money
+  businessValue: Money
+}
+
+/** One line of the cash book, oldest first. `amount` is positive for money in, negative for money out. */
+export type CashMovement = { date: string; type: string; reference: string; amount: Money }
+
+export function fetchCapital(): Promise<CapitalSummary[]> {
+  return request<CapitalSummary[]>('/api/v1/capital')
+}
+
+export function fetchOverview(): Promise<CurrencyPosition[]> {
+  return request<CurrencyPosition[]>('/api/v1/overview')
+}
+
+export function fetchCashBook(): Promise<CashMovement[]> {
+  return request<CashMovement[]>('/api/v1/cash-book')
+}
+
+/** Taking out more cash than there is, is refused by the backend. */
+export function recordCapital(movement: { type: CapitalType; amount: Money; date: string }) {
+  return request<{ id: string }>('/api/v1/capital', { method: 'POST', body: JSON.stringify(movement) })
+}

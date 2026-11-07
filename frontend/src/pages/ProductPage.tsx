@@ -30,6 +30,11 @@ const SOLD_STATUSES: api.UnitStatus[] = ['SOLD', 'CLOSED']
 
 /** Offered as one-tap reasons when removing a piece or a batch. */
 const REMOVE_REASONS = ['Created by mistake', 'Damaged', 'Lost']
+/** These mean the goods are really gone: their cost counts as a loss (it can still be unticked). */
+const LOSS_REASONS = ['Damaged', 'Lost']
+
+/** "€335.00" or "€300.00 + 60.000 TND" for a write-off's cost. */
+const formatCost = (cost: api.Money[]) => cost.map(formatMoney).join(' + ')
 
 /** Same rules as the backend: sold or travelling pieces stay; a batch with sales stays. */
 const canRemoveUnit = (u: api.Unit) => !['SOLD', 'CLOSED', 'IN_TRANSIT'].includes(u.status)
@@ -364,10 +369,19 @@ export function ProductPage() {
             </p>
           }
           onClose={() => setOpen(null)}
-          onConfirm={async (reason) => {
+          lossReasons={LOSS_REASONS}
+          onConfirm={async (reason, loss) => {
             const { id } = open.unit
-            await api.deleteUnit(id, reason)
-            setNotice({ text: `Removed piece ${id} (${reason}).`, undo: () => api.restoreUnit(id) })
+            if (loss) {
+              const writeOff = await api.writeOffUnit(id, reason)
+              setNotice({
+                text: `Wrote off piece ${id} (${reason}): ${formatCost(writeOff.cost)} counted as a loss.`,
+                undo: () => api.restoreUnit(id),
+              })
+            } else {
+              await api.deleteUnit(id, reason)
+              setNotice({ text: `Removed piece ${id} (${reason}).`, undo: () => api.restoreUnit(id) })
+            }
             reload()
           }}
         />
@@ -386,10 +400,19 @@ export function ProductPage() {
             </p>
           }
           onClose={() => setOpen(null)}
-          onConfirm={async (reason) => {
+          lossReasons={LOSS_REASONS}
+          onConfirm={async (reason, loss) => {
             const { id } = open.lot
-            await api.deleteLot(id, reason)
-            setNotice({ text: `Removed batch ${id} (${reason}).`, undo: () => api.restoreLot(id) })
+            if (loss) {
+              const writeOff = await api.writeOffLot(id, reason)
+              setNotice({
+                text: `Wrote off batch ${id} (${reason}): ${formatCost(writeOff.cost)} counted as a loss.`,
+                undo: () => api.restoreLot(id),
+              })
+            } else {
+              await api.deleteLot(id, reason)
+              setNotice({ text: `Removed batch ${id} (${reason}).`, undo: () => api.restoreLot(id) })
+            }
             reload()
           }}
         />

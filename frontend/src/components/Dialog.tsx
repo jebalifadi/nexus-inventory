@@ -41,8 +41,15 @@ type ConfirmProps = {
   reasons?: string[]
   /** The action needs a reason (it is kept in the trash with the record). */
   requireReason?: boolean
+  /**
+   * Reasons that mean the goods are really gone (Damaged, Lost). When given, a "Count its cost as a
+   * loss" checkbox appears; choosing one of these ticks it, choosing another reason unticks it.
+   */
+  lossReasons?: string[]
+  /** Explains what the loss checkbox does, e.g. with the cost that will count. */
+  lossHint?: ReactNode
   /** Runs the action with the reason; throw to show the error and keep the dialog open. */
-  onConfirm: (reason: string) => Promise<void>
+  onConfirm: (reason: string, loss: boolean) => Promise<void>
   onClose: () => void
 }
 
@@ -54,14 +61,22 @@ export function ConfirmDeleteDialog({
   busyLabel = 'Deleting…',
   reasons = [],
   requireReason = false,
+  lossReasons,
+  lossHint,
   onConfirm,
   onClose,
 }: ConfirmProps) {
   const [reason, setReason] = useState('')
+  const [loss, setLoss] = useState(false)
+
+  function choose(r: string) {
+    setReason(r)
+    if (lossReasons) setLoss(lossReasons.includes(r))
+  }
 
   return (
     <Dialog title={title} onClose={onClose}>
-      <ActionForm submitLabel={confirmLabel} busyLabel={busyLabel} danger onSubmit={() => onConfirm(reason)} onClose={onClose}>
+      <ActionForm submitLabel={confirmLabel} busyLabel={busyLabel} danger onSubmit={() => onConfirm(reason, Boolean(lossReasons) && loss)} onClose={onClose}>
         <div className="muted">{message}</div>
         {reasons.length > 0 && (
           <div className="reason-choices" role="group" aria-label="Common reasons">
@@ -71,7 +86,7 @@ export function ConfirmDeleteDialog({
                 type="button"
                 className="secondary"
                 aria-pressed={reason === r}
-                onClick={() => setReason(r)}
+                onClick={() => choose(r)}
               >
                 {r}
               </button>
@@ -92,6 +107,15 @@ export function ConfirmDeleteDialog({
             placeholder={reasons.length ? 'Choose above or type your own' : 'e.g. created by mistake'}
           />
         </label>
+        {lossReasons && (
+          <label className="choice-inline loss-choice">
+            <input type="checkbox" className="check" checked={loss} onChange={(e) => setLoss(e.target.checked)} />
+            <span>
+              <strong>Count its cost as a loss</strong>
+              <span className="muted small">{lossHint ?? ' Lowers profit; untick when it was entered by mistake.'}</span>
+            </span>
+          </label>
+        )}
       </ActionForm>
     </Dialog>
   )

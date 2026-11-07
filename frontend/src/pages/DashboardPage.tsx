@@ -12,6 +12,7 @@ type Data = {
   shipments: api.Shipment[]
   sales: api.Sale[]
   expenses: api.Expense[]
+  writeOffs: api.WriteOff[]
   positions: api.CurrencyPosition[]
   receivables: api.OpenBalance[]
   payables: api.OpenBalance[]
@@ -22,18 +23,19 @@ type Data = {
 const REFRESH_EVERY_MS = 5 * 60 * 1000
 
 async function load(): Promise<Data> {
-  const [purchases, shipments, sales, expenses, positions, receivables, payables, stock] = await Promise.all([
+  const [purchases, shipments, sales, expenses, writeOffs, positions, receivables, payables, stock] = await Promise.all([
     api.fetchPurchases(),
     api.fetchShipments(),
     api.fetchSales(),
     api.fetchExpenses(),
+    api.fetchWriteOffs(),
     api.fetchOverview(),
     api.fetchReceivables(),
     api.fetchPayables(),
     api.fetchStock(),
   ])
   const stockPieces = stock.reduce((sum, s) => sum + s.quantity, 0)
-  return { purchases, shipments, sales, expenses, positions, receivables, payables, stockPieces }
+  return { purchases, shipments, sales, expenses, writeOffs, positions, receivables, payables, stockPieces }
 }
 
 
@@ -54,6 +56,8 @@ type Figures = {
   invested: number
   revenue: number
   costs: number
+  expenses: number
+  losses: number
   profit: number
   salesCount: number
   unknownProfit: number
@@ -70,13 +74,18 @@ function figures(data: Data, currency: string, range: Range): Figures {
   const boughtFor = sum(data.purchases.filter((p) => within(p.purchaseDate)).map((p) => p.total), currency)
   const shipping = sum(data.shipments.filter((s) => within(s.shippedDate)).map((s) => s.cost), currency)
   const salesProfit = sum(sales.flatMap((s) => (s.profit ? [s.profit] : [])), currency)
+  // Damaged or lost goods: their real cost is a loss. It lowers profit, not cash.
+  const losses = sum(data.writeOffs.filter((w) => within(w.date)).flatMap((w) => w.cost), currency)
+  const spent = sum(expenses.map((e) => e.amount), currency)
   return {
     boughtFor,
     shipping,
     invested: boughtFor + shipping,
     revenue: sum(sales.map((s) => s.total), currency) - sum(sales.map((s) => s.returns), currency),
-    costs: sum(expenses.map((e) => e.amount), currency),
-    profit: salesProfit - sum(general.map((e) => e.amount), currency),
+    costs: spent + losses,
+    expenses: spent,
+    losses,
+    profit: salesProfit - sum(general.map((e) => e.amount), currency) - losses,
     salesCount: sales.filter((s) => s.currency === currency).length,
     unknownProfit: sales.filter((s) => s.currency === currency && !s.profit).length,
   }
@@ -143,7 +152,7 @@ export function DashboardPage() {
     : []
   const currency = chosenCurrency && used.includes(chosenCurrency) ? chosenCurrency : defaultCurrency(used)
 
-  const empty: Figures = { boughtFor: 0, shipping: 0, invested: 0, revenue: 0, costs: 0, profit: 0, salesCount: 0, unknownProfit: 0 }
+  const empty: Figures = { boughtFor: 0, shipping: 0, invested: 0, revenue: 0, costs: 0, expenses: 0, losses: 0, profit: 0, salesCount: 0, unknownProfit: 0 }
   const now = data && currency ? figures(data, currency, period) : empty
   const previous = previousRange(period)
   const before = period.compare && previous && data && currency ? figures(data, currency, previous) : null
@@ -213,6 +222,11 @@ export function DashboardPage() {
             <div className="card section">
               <span className="eyebrow">{t('dash.costs')}</span>
               <div className="big-number"><span>{money(costs)}</span></div>
+              {now.losses > 0 && (
+                <span className="muted small">
+                  {t('dash.costsSplit', { expenses: money(now.expenses), losses: money(now.losses) })}
+                </span>
+              )}
               <Link className="small" to="/expenses">{t('dash.costsLink')}</Link>
               {before && <Delta now={costs} before={before.costs} tone="up-bad" format={money} />}
             </div>

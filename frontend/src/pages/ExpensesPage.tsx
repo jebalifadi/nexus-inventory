@@ -4,6 +4,7 @@ import { useIsOwner } from '../auth'
 import { currencyDecimals, currencyStep, EXPENSE_CATEGORY_LABELS, formatDate, formatMoney, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 
 type Data = {
   expenses: api.Expense[]
@@ -119,7 +120,7 @@ type DialogProps = {
 type Target = 'PIECE' | 'SALE' | 'GENERAL'
 
 function AddExpenseDialog({ data, productName, onSaved, onClose }: DialogProps) {
-  const [currency, setCurrency] = useState(data.currencies.includes('EUR') ? 'EUR' : (data.currencies[0] ?? ''))
+  const [currency, setCurrency] = useState(defaultCurrency(data.currencies))
   const [target, setTarget] = useState<Target | null>(null)
   const step = currencyStep(currency)
 

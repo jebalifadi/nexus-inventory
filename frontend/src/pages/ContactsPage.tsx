@@ -32,11 +32,11 @@ function owed(rows: api.OpenBalance[], name: string): string {
   return [...totals].map(([currency, amount]) => formatMoney({ currency, amount: String(amount) })).join(' + ')
 }
 
-export function ContactsPage() {
+/** Customers or suppliers, each on its own page in the menu. */
+export function ContactsPage({ tab }: { tab: 'customers' | 'suppliers' }) {
   const isOwner = useIsOwner()
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'customers' | 'suppliers'>('customers')
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -54,17 +54,9 @@ export function ContactsPage() {
   return (
     <Layout>
       <div className="page-head">
-        <h1>Contacts</h1>
+        <h1>{tab === 'customers' ? 'Customers' : 'Suppliers'}</h1>
         <div className="head-tools">
-          <div className="segmented" role="group" aria-label="Show">
-            <button aria-pressed={tab === 'customers'} onClick={() => setTab('customers')}>
-              Customers {data && `(${data.customers.length})`}
-            </button>
-            <button aria-pressed={tab === 'suppliers'} onClick={() => setTab('suppliers')}>
-              Suppliers {data && `(${data.suppliers.length})`}
-            </button>
-          </div>
-          <input type="search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input type="search" placeholder="Search…" aria-label={`Search ${tab}`} value={search} onChange={(e) => setSearch(e.target.value)} />
           {isOwner && <button onClick={() => setAdding(true)}>{tab === 'customers' ? 'New customer' : 'New supplier'}</button>}
         </div>
       </div>

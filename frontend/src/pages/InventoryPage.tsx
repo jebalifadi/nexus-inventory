@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import * as api from '../api'
 import { useIsOwner } from '../auth'
-import { columnFields, displayValue } from '../catalog'
+import { columnFields, displayValue, formatNumber } from '../catalog'
 import { Layout } from '../components/Layout'
 
 type Data = {
@@ -138,7 +138,7 @@ export function InventoryPage() {
               <div className="title-row">
                 <h2>{category.name}</h2>
                 <span className="muted small">
-                  {total.toLocaleString()} {total === 1 ? 'piece' : 'pieces'}
+                  {formatNumber(total)} {total === 1 ? 'piece' : 'pieces'}
                 </span>
               </div>
             </div>
@@ -168,7 +168,7 @@ export function InventoryPage() {
                         <td key={f.key}>{displayValue(f, r.product.attributes[f.key])}</td>
                       ))}
                       <td className="muted-strong">{r.locationName}</td>
-                      <td className="num strong">{r.quantity.toLocaleString()}</td>
+                      <td className="num strong">{formatNumber(r.quantity)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -8,7 +8,7 @@ purchase to sale, with its real cost and real profit.
 > expenses, exchange rates, warranty, cash, login with roles and audit log. Phase 2 (React frontend)
 > complete: every backend feature has a screen: dashboard, inventory, catalog, purchases, shipments,
 > sales, warranty and returns, expenses, cash book, capital, exchange rates, contacts and admin
-> (users, trash, audit log). See the [roadmap](#roadmap).
+> (users, trash, audit log), in English, German, French and Arabic. See the [roadmap](#roadmap).
 
 ## Features
 
@@ -16,7 +16,8 @@ purchase to sale, with its real cost and real profit.
 - Stock tracked as individual **units** (serial numbers) or **lots** (quantities), per warehouse
 - Purchases and sales with lines, partial payments and money owed
 - Real cost per item: FIFO stock costing and shared costs (shipping, customs) split fairly
-- Dashboard: cash, stock, money owed, profit and business value per currency
+- Dashboard: money invested, revenue, costs and profit for any period, compared with the period before
+- Web app in English, Deutsch, Français and العربية (right to left), with light and dark themes
 - Several currencies, with exchange rates frozen on each transaction
 - Warranty claims, returns and refunds; login with roles; append-only audit log (alerts planned)
 - AI chat assistant that answers from live data and drafts entries for the owner to confirm (planned)

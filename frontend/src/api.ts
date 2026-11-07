@@ -697,6 +697,11 @@ export function fetchTrash(): Promise<TrashItem[]> {
   return request<TrashItem[]>('/api/v1/trash')
 }
 
+/** Soft delete: the location goes to the trash. Refused while it still holds stock. */
+export function deleteLocation(id: number, reason: string) {
+  return request<void>(`/api/v1/locations/${id}${reasonQuery(reason)}`, { method: 'DELETE' })
+}
+
 export function restoreLocation(id: number) {
   return request<Location>(`/api/v1/locations/${id}/restore`, { method: 'POST' })
 }

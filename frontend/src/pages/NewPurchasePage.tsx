@@ -5,6 +5,7 @@ import { currencyDecimals, currencyStep, formatMoney, itemFields, PAYMENT_METHOD
 import { ActionForm, Dialog } from '../components/Dialog'
 import { FieldInput } from '../components/FieldInput'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 
 type Data = {
   products: api.Product[]
@@ -60,7 +61,7 @@ export function NewPurchasePage() {
     Promise.all([api.fetchProducts(), api.fetchCategories(), api.fetchLocations(), api.fetchSuppliers(), api.fetchCurrencies()])
       .then(([products, categories, locations, suppliers, currencies]) => {
         setData({ products, categories, locations, suppliers, currencies })
-        setCurrency(currencies.includes('EUR') ? 'EUR' : (currencies[0] ?? ''))
+        setCurrency(defaultCurrency(currencies))
         if (locations.length === 1) setLocationId(locations[0].id)
       })
       .catch((e: Error) => setLoadError(e.message))
@@ -170,9 +171,10 @@ export function NewPurchasePage() {
         <Link to="/purchases">← Back to purchases</Link>
       </div>
 
-      <form className="stack" onSubmit={handleSubmit}>
+      <form className="form-layout" onSubmit={handleSubmit}>
+        <div className="stack">
         <section className="card section">
-          <h2>1 · Purchase</h2>
+          <h2 className="step-title"><span className="step-no" aria-hidden="true">1</span>Purchase</h2>
           <div className="row">
             <label>
               Supplier
@@ -223,7 +225,7 @@ export function NewPurchasePage() {
         </section>
 
         <section className="card section">
-          <h2>2 · What was bought</h2>
+          <h2 className="step-title"><span className="step-no" aria-hidden="true">2</span>What was bought</h2>
           {products.length === 0 ? (
             <p className="muted">
               No products yet. Create them in the <Link to="/catalog">Catalog</Link> first.
@@ -315,14 +317,13 @@ export function NewPurchasePage() {
                 <button type="button" className="secondary" onClick={() => setLines((all) => [...all, emptyLine()])}>
                   + Add another product
                 </button>
-                <strong>Total: {formatMoney({ amount: total, currency })}</strong>
               </div>
             </>
           )}
         </section>
 
         <section className="card section">
-          <h2>3 · Payment to the supplier</h2>
+          <h2 className="step-title"><span className="step-no" aria-hidden="true">3</span>Payment to the supplier</h2>
           <div className="subform" role="radiogroup" aria-label="Have you paid the supplier?">
             <label className="choice">
               <input type="radio" name="paid" checked={paid === 'FULL'} onChange={() => setPaid('FULL')} required />
@@ -376,13 +377,45 @@ export function NewPurchasePage() {
           </label>
         </section>
 
-        {error && <p className="error" role="alert">{error}</p>}
+        </div>
 
-        <div className="actions">
+        <aside className="card summary-card" aria-label="Summary">
+          <h2>Summary</h2>
+          <dl>
+            <div>
+              <dt>Pieces</dt>
+              <dd>{lines.reduce((n, l) => n + (l.productId !== null ? Number(l.quantity) || 0 : 0), 0)}</dd>
+            </div>
+            <div>
+              <dt>Paid now</dt>
+              <dd>
+                {paid === 'FULL'
+                  ? formatMoney({ amount: total, currency })
+                  : paid === 'PART' && partAmount
+                    ? formatMoney({ amount: partAmount, currency })
+                    : formatMoney({ amount: '0', currency })}
+              </dd>
+            </div>
+            <div>
+              <dt>Still owed</dt>
+              <dd>
+                {formatMoney({
+                  amount: String(paid === 'FULL' ? 0 : paid === 'PART' ? Math.max(Number(total) - (Number(partAmount) || 0), 0) : Number(total)),
+                  currency,
+                })}
+              </dd>
+            </div>
+            <div className="total">
+              <dt>Total</dt>
+              <dd>{formatMoney({ amount: total, currency })}</dd>
+            </div>
+          </dl>
+          <p className="muted small">The goods go into stock when you save. Shipping is added to their cost when you ship them.</p>
+          {error && <p className="error" role="alert">{error}</p>}
           <button type="submit" disabled={busy || !supplierId || !locationId || products.length === 0 || partTooHigh}>
             {busy ? 'Saving…' : 'Save purchase'}
           </button>
-        </div>
+        </aside>
       </form>
 
       {addingSupplier && (

@@ -4,6 +4,7 @@ import { useIsOwner } from '../auth'
 import { currencyStep, formatDate, formatMoney, itemFields, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 
 type Data = {
   shipments: api.Shipment[]
@@ -242,7 +243,7 @@ type DialogProps = { data: Data; onSaved: (s: api.Shipment) => Promise<void>; on
 function NewShipmentDialog({ data, onSaved, onClose }: DialogProps) {
   const [fromId, setFromId] = useState<number | null>(data.locations.length === 2 ? data.locations[0].id : null)
   const [toId, setToId] = useState<number | null>(data.locations.length === 2 ? data.locations[1].id : null)
-  const [currency, setCurrency] = useState(data.currencies.includes('EUR') ? 'EUR' : (data.currencies[0] ?? ''))
+  const [currency, setCurrency] = useState(defaultCurrency(data.currencies))
   const [chosen, setChosen] = useState<Set<string>>(new Set())
 
   const product = (id: number) => data.products.find((p) => p.id === id)

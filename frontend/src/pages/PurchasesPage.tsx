@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import * as api from '../api'
 import { useIsOwner } from '../auth'
-import { currencyStep, formatDate, formatMoney, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, today } from '../catalog'
+import { currencyStep, formatDate, formatMoney, PAYMENT_METHOD_LABELS, PAYMENT_PILL, PAYMENT_STATUS_LABELS, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
 
@@ -78,7 +78,7 @@ export function PurchasesPage() {
                   <td>{purchase.supplierName}</td>
                   <td>{items(purchase)}</td>
                   <td className="num">{formatMoney(purchase.total)}</td>
-                  <td className="nowrap">{PAYMENT_STATUS_LABELS[purchase.paymentStatus]}</td>
+                  <td><span className={PAYMENT_PILL[purchase.paymentStatus]}>{PAYMENT_STATUS_LABELS[purchase.paymentStatus]}</span></td>
                   <td className="num">{formatMoney(purchase.balance)}</td>
                   {isOwner && (
                     <td className="row-actions">

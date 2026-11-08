@@ -1,5 +1,12 @@
 // Small helpers shared by the catalog, inventory and product screens.
-import type { Category, CategoryField, ExpenseCategory, Money, PaymentMethod, PaymentStatus, UnitStatus } from './api'
+import type { CapitalType, Category, CategoryField, ExpenseCategory, Money, PaymentMethod, PaymentStatus, UnitStatus } from './api'
+
+export const CAPITAL_TYPE_LABELS: Record<CapitalType, string> = {
+  OPENING_BALANCE: 'Opening balance',
+  CAPITAL_ADDED: 'Money added',
+  CAPITAL_WITHDRAWN: 'Money withdrawn',
+  PROFIT_WITHDRAWN: 'Profit withdrawn',
+}
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   SHIPPING: 'Shipping',

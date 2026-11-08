@@ -8,7 +8,7 @@ purchase to sale, with its real cost and real profit.
 > expenses, exchange rates, warranty, cash, login with roles and audit log. Phase 2 (React frontend)
 > started: login, inventory list with SKUs, adding products and stock, editing or deleting
 > categories and products, owner-chosen product names, a product page listing every piece, recording sales with their
-> profit and payments, and recording expenses. See the [roadmap](#roadmap).
+> profit and payments, recording expenses, exchange rates and capital. See the [roadmap](#roadmap).
 
 ## Features
 

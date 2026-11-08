@@ -103,8 +103,8 @@ h3 { font-size: 1rem; margin: 0; }
 .success { color: var(--success); }
 
 /* Navigation */
-.topbar nav { display: flex; gap: 0.25rem; }
-.topbar nav a { color: var(--muted); text-decoration: none; padding: 0.35rem 0.7rem; border-radius: 6px; font-weight: 500; }
+.topbar nav { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.topbar nav a { color: var(--muted); text-decoration: none; padding: 0.35rem 0.7rem; border-radius: 6px; font-weight: 500; white-space: nowrap; }
 .topbar nav a.active { color: var(--text); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .topbar .user { margin-left: auto; }
 
@@ -116,6 +116,9 @@ h3 { font-size: 1rem; margin: 0; }
 .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .row > label { min-width: 180px; }
 .row > label.narrow { flex: 0 0 110px; min-width: 0; }
+.row.compact { flex-wrap: nowrap; }
+.row.compact > label { min-width: 0; }
+.row.compact > label.narrow { flex-basis: 84px; }
 .align-end { align-self: flex-end; }
 .actions { display: flex; gap: 0.75rem; }
 fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem 1rem; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }

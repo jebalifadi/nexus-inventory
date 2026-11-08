@@ -722,3 +722,32 @@ export type AuditEntry = { id: number; occurredAt: string; username: string; met
 export function fetchAudit(limit = 200): Promise<AuditEntry[]> {
   return request<AuditEntry[]>(`/api/v1/audit?limit=${limit}`)
 }
+
+// --- Write-offs -------------------------------------------------------------
+
+/** Goods that left stock without being sold (damaged, lost). Their real cost lowers profit, not cash. */
+export type WriteOff = {
+  id: string
+  unitId: string | null
+  lotId: string | null
+  productId: number
+  quantity: number
+  reason: string
+  date: string
+  /** Purchase + shipping + repairs, one entry per currency. */
+  cost: Money[]
+}
+
+export function fetchWriteOffs(): Promise<WriteOff[]> {
+  return request<WriteOff[]>('/api/v1/write-offs')
+}
+
+/** The piece goes to the trash and its real cost counts as a loss. Restoring it cancels the loss. */
+export function writeOffUnit(unitId: string, reason: string) {
+  return request<WriteOff>('/api/v1/write-offs', { method: 'POST', body: JSON.stringify({ unitId, reason }) })
+}
+
+/** What is left of the batch goes to the trash and its real cost counts as a loss. */
+export function writeOffLot(lotId: string, reason: string) {
+  return request<WriteOff>('/api/v1/write-offs', { method: 'POST', body: JSON.stringify({ lotId, reason }) })
+}

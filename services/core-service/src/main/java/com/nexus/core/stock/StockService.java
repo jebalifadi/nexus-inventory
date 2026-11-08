@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +24,14 @@ public class StockService {
     private final StockRepository repository;
     private final CatalogService catalog;
     private final TrashRepository trash;
+    private final ApplicationEventPublisher events;
 
-    StockService(StockRepository repository, CatalogService catalog, TrashRepository trash) {
+    StockService(StockRepository repository, CatalogService catalog, TrashRepository trash,
+                 ApplicationEventPublisher events) {
         this.repository = repository;
         this.catalog = catalog;
         this.trash = trash;
+        this.events = events;
     }
 
     @Transactional
@@ -301,6 +305,7 @@ public class StockService {
                 .orElseThrow(() -> new NotFoundException("Unit " + publicId + " not found"));
         requireRestorable("Unit " + publicId, ref);
         trash.restore(TrashType.UNIT, ref.id());
+        events.publishEvent(new StockRestored(ref.id(), null));
         return getUnit(publicId);
     }
 
@@ -323,6 +328,7 @@ public class StockService {
                 .orElseThrow(() -> new NotFoundException("Lot " + publicId + " not found"));
         requireRestorable("Lot " + publicId, ref);
         trash.restore(TrashType.LOT, ref.id());
+        events.publishEvent(new StockRestored(null, ref.id()));
         return getLot(publicId);
     }
 

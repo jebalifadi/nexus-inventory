@@ -505,3 +505,7 @@ input.check { width: 18px; height: 18px; accent-color: var(--accent); }
 .delta.bad { color: var(--danger); }
 .delta.neutral { color: var(--muted-strong); }
 .delta .muted { font-weight: 400; }
+
+.loss-choice { align-items: flex-start; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.loss-choice > span { display: flex; flex-direction: column; gap: 0.15rem; }
+.loss-choice input { margin-top: 0.2rem; }

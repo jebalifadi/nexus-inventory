@@ -6,9 +6,9 @@ purchase to sale, with its real cost and real profit.
 
 > **Status:** Phase 1 (core domain) complete: catalog, stock, purchases, shipping, sales, payments,
 > expenses, exchange rates, warranty, cash, login with roles and audit log. Phase 2 (React frontend)
-> started: login, inventory list with SKUs, adding products and stock, editing or deleting
-> categories and products, owner-chosen product names, a product page listing every piece, recording sales with their
-> profit and payments, recording expenses, exchange rates and capital. See the [roadmap](#roadmap).
+> complete: every backend feature has a screen: dashboard, inventory, catalog, purchases, shipments,
+> sales, warranty and returns, expenses, cash book, capital, exchange rates, contacts and admin
+> (users, trash, audit log), in English, German, French and Arabic. See the [roadmap](#roadmap).
 
 ## Features
 
@@ -16,7 +16,8 @@ purchase to sale, with its real cost and real profit.
 - Stock tracked as individual **units** (serial numbers) or **lots** (quantities), per warehouse
 - Purchases and sales with lines, partial payments and money owed
 - Real cost per item: FIFO stock costing and shared costs (shipping, customs) split fairly
-- Business overview: cash, stock, money owed, profit, business value (dashboard UI planned)
+- Dashboard: money invested, revenue, costs and profit for any period, compared with the period before
+- Web app in English, Deutsch, Français and العربية (right to left), with light and dark themes
 - Several currencies, with exchange rates frozen on each transaction
 - Warranty claims, returns and refunds; login with roles; append-only audit log (alerts planned)
 - AI chat assistant that answers from live data and drafts entries for the owner to confirm (planned)
@@ -138,8 +139,8 @@ applied automatically by Flyway at startup. Never edit a migration that already 
 |---|---|
 | 0 · Foundations | Repository, backend skeleton, database, CI |
 | 1 · Core domain | Catalog, units and lots, purchases, sales, payments, FIFO, landed cost |
-| **2 · Frontend** ← now | React app for daily work |
-| 3 · Insight | Dashboard, analytics, exchange rates, alerts, import |
+| 2 · Frontend ✓ | React app for daily work |
+| **3 · Insight** ← next | Dashboard, analytics, exchange rates, alerts, import |
 | 4 · DevOps | Containers for everything, full CI/CD |
 | 5 · Services | Extract services, events with RabbitMQ, API gateway |
 | 6 · AI | Chat assistant with a local model |

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import * as api from '../api'
 import { useIsOwner } from '../auth'
-import { currencyStep, formatDate, formatMoney, PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, today } from '../catalog'
+import { currencyStep, formatDate, formatMoney, formatSigned, profitClass, PAYMENT_METHOD_LABELS, PAYMENT_PILL, PAYMENT_STATUS_LABELS, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
 
@@ -79,14 +79,14 @@ export function SalesPage() {
                   <td className="num">{formatMoney(sale.total)}</td>
                   <td className="num">
                     {sale.profit ? (
-                      formatMoney(sale.profit)
+                      <span className={profitClass(sale.profit)}>{formatSigned(sale.profit)}</span>
                     ) : (
                       <span className="muted" title={sale.profitUnknownReason ?? undefined}>
                         Unknown
                       </span>
                     )}
                   </td>
-                  <td className="nowrap">{PAYMENT_STATUS_LABELS[sale.paymentStatus]}</td>
+                  <td><span className={PAYMENT_PILL[sale.paymentStatus]}>{PAYMENT_STATUS_LABELS[sale.paymentStatus]}</span></td>
                   <td className="num">{formatMoney(sale.balance)}</td>
                   {isOwner && (
                     <td className="row-actions">

@@ -4,6 +4,7 @@ import { useIsOwner } from '../auth'
 import { CAPITAL_TYPE_LABELS, currencyDecimals, currencyStep, formatDate, formatMoney, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 
 type Data = {
   capital: api.CapitalSummary[]
@@ -156,7 +157,7 @@ type EntryType = 'OPENING_BALANCE' | 'CAPITAL_ADDED' | 'CAPITAL_WITHDRAWN'
 
 function AddEntryDialog({ data, onSaved, onClose }: DialogProps) {
   const [type, setType] = useState<EntryType | null>(null)
-  const [currency, setCurrency] = useState(data.currencies.includes('EUR') ? 'EUR' : (data.currencies[0] ?? ''))
+  const [currency, setCurrency] = useState(defaultCurrency(data.currencies))
   const step = currencyStep(currency)
   const cash = data.positions.find((p) => p.currency === currency)?.cash ?? { amount: '0', currency }
 

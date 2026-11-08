@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import * as api from '../api'
-import { currencyDecimals, currencyStep, formatMoney, HELD_STATUSES, itemFields, PAYMENT_METHOD_LABELS, today } from '../catalog'
+import { currencyDecimals, currencyStep, formatDate, formatMoney, formatSigned, HELD_STATUSES, itemFields, PAYMENT_METHOD_LABELS, profitClass, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 
 type Data = {
   products: api.Product[]
@@ -12,6 +13,9 @@ type Data = {
   customers: api.Customer[]
   stock: api.StockLevel[]
   units: api.Unit[]
+  lots: api.Lot[]
+  shipments: api.Shipment[]
+  expenses: api.Expense[]
   currencies: string[]
 }
 
@@ -56,11 +60,14 @@ export function NewSalePage() {
       api.fetchCustomers(),
       api.fetchStock(),
       api.fetchUnits(),
+      api.fetchLots(),
+      api.fetchShipments(),
+      api.fetchExpenses(),
       api.fetchCurrencies(),
     ])
-      .then(([products, categories, locations, customers, stock, units, currencies]) => {
-        setData({ products, categories, locations, customers, stock, units, currencies })
-        setCurrency(currencies.includes('EUR') ? 'EUR' : (currencies[0] ?? ''))
+      .then(([products, categories, locations, customers, stock, units, lots, shipments, expenses, currencies]) => {
+        setData({ products, categories, locations, customers, stock, units, lots, shipments, expenses, currencies })
+        setCurrency(defaultCurrency(currencies))
         if (locations.length === 1) setLocationId(locations[0].id)
       })
       .catch((e: Error) => setLoadError(e.message))
@@ -139,6 +146,54 @@ export function NewSalePage() {
   const total = (lines.reduce((sum, line) => sum + lineMinorUnits(line), 0) / 10 ** decimals).toFixed(decimals)
   const partTooHigh = paid === 'PART' && Number(partAmount) >= Number(total)
 
+  // --- Summary: an estimate for the owner while typing; the backend freezes the real cost on save. ---
+  const toMinor = (m: api.Money) => Math.round(Number(m.amount) * 10 ** decimals)
+  /** Shipping share of one piece of a unit or lot, from the shipment it travelled in. */
+  function shippingPerPiece(itemId: string): api.Money[] {
+    return data!.shipments.flatMap((s) =>
+      s.items
+        .filter((i) => i.id === itemId)
+        .map((i) => ({ currency: i.shippingCost.currency, amount: String(Number(i.shippingCost.amount) / i.quantity) })),
+    )
+  }
+  /** Real cost of one line in minor units, or null when part of it is in another currency. */
+  function lineCost(line: Line): number | null {
+    let parts: api.Money[] = []
+    if (isUnitLine(line)) {
+      const unit = data!.units.find((u) => u.id === line.unitId)
+      if (!unit) return 0
+      parts = [unit.unitCost, ...shippingPerPiece(unit.id), ...data!.expenses.filter((e) => e.unitId === unit.id).map((e) => e.amount)]
+    } else {
+      // Oldest goods leave first (FIFO), like the backend does.
+      let left = Number(line.quantity) || 0
+      const lots = data!.lots
+        .filter((l) => l.productId === line.productId && l.locationId === locationId && l.status === 'IN_STOCK' && l.quantityRemaining > 0)
+        .sort((a, b) => a.receivedDate.localeCompare(b.receivedDate) || a.id.localeCompare(b.id))
+      for (const lot of lots) {
+        if (left <= 0) break
+        const take = Math.min(left, lot.quantityRemaining)
+        left -= take
+        for (const m of [lot.unitCost, ...shippingPerPiece(lot.id)]) {
+          parts.push({ currency: m.currency, amount: String(Number(m.amount) * take) })
+        }
+      }
+    }
+    if (parts.some((m) => m.currency !== currency)) return null
+    return parts.reduce((sum, m) => sum + toMinor(m), 0)
+  }
+  const filledLines = lines.filter((l) => l.productId !== null && (!isUnitLine(l) || l.unitId))
+  const costs = filledLines.map(lineCost)
+  const costKnown = costs.every((c) => c !== null)
+  const costMinor = costs.reduce<number>((sum, c) => sum + (c ?? 0), 0)
+  const realCost = { amount: (costMinor / 10 ** decimals).toFixed(decimals), currency }
+  const expectedProfit = { amount: ((Math.round(Number(total) * 10 ** decimals) - costMinor) / 10 ** decimals).toFixed(decimals), currency }
+  const warrantyDays = filledLines.map((l) => Number(l.warrantyDays) || 0).filter((d) => d > 0)
+  function warrantyEnd(days: number) {
+    const end = new Date(`${saleDate}T00:00:00`)
+    end.setDate(end.getDate() + days)
+    return formatDate(end.toLocaleDateString('sv'))
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!locationId || !paid || partTooHigh) return
@@ -192,9 +247,10 @@ export function NewSalePage() {
         <Link to="/sales">← Back to sales</Link>
       </div>
 
-      <form className="stack" onSubmit={handleSubmit}>
+      <form className="form-layout" onSubmit={handleSubmit}>
+        <div className="stack">
         <section className="card section">
-          <h2>1 · Sale</h2>
+          <h2 className="step-title"><span className="step-no" aria-hidden="true">1</span>Sale</h2>
           <div className="row">
             <label>
               Sold from
@@ -239,7 +295,7 @@ export function NewSalePage() {
         </section>
 
         <section className="card section">
-          <h2>2 · What was sold</h2>
+          <h2 className="step-title"><span className="step-no" aria-hidden="true">2</span>What was sold</h2>
           {!locationId ? (
             <p className="muted">Choose where it was sold from first.</p>
           ) : sellable.length === 0 ? (
@@ -336,14 +392,13 @@ export function NewSalePage() {
                 <button type="button" className="secondary" onClick={() => setLines((all) => [...all, emptyLine()])}>
                   + Add another item
                 </button>
-                <strong>Total: {formatMoney({ amount: total, currency })}</strong>
               </div>
             </>
           )}
         </section>
 
         <section className="card section">
-          <h2>3 · Payment</h2>
+          <h2 className="step-title"><span className="step-no" aria-hidden="true">3</span>Payment</h2>
           <div className="subform" role="radiogroup" aria-label="Has the customer paid?">
             <label className="choice">
               <input type="radio" name="paid" checked={paid === 'FULL'} onChange={() => setPaid('FULL')} required />
@@ -397,13 +452,48 @@ export function NewSalePage() {
           </label>
         </section>
 
-        {error && <p className="error" role="alert">{error}</p>}
+        </div>
 
-        <div className="actions">
+        <aside className="card summary-card" aria-label="Summary">
+          <h2>Summary</h2>
+          <dl>
+            <div>
+              <dt>Items</dt>
+              <dd>{filledLines.reduce((n, l) => n + (isUnitLine(l) ? 1 : Number(l.quantity) || 0), 0)}</dd>
+            </div>
+            <div>
+              <dt>Real cost</dt>
+              <dd>{costKnown ? formatMoney(realCost) : <span className="muted" title="Some costs are in another currency">Unknown</span>}</dd>
+            </div>
+            <div>
+              <dt>Expected profit</dt>
+              <dd>
+                {costKnown && filledLines.length > 0 ? (
+                  <span className={profitClass(expectedProfit)}>{formatSigned(expectedProfit)}</span>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Warranty until</dt>
+              <dd>
+                {warrantyDays.length === 0
+                  ? <span className="muted">No warranty</span>
+                  : warrantyEnd(Math.max(...warrantyDays))}
+              </dd>
+            </div>
+            <div className="total">
+              <dt>Total</dt>
+              <dd>{formatMoney({ amount: total, currency })}</dd>
+            </div>
+          </dl>
+          <p className="muted small">Real cost = purchase + shipping + repairs on these pieces. The exact figure is saved with the sale.</p>
+          {error && <p className="error" role="alert">{error}</p>}
           <button type="submit" disabled={busy || !locationId || sellable.length === 0 || partTooHigh}>
             {busy ? 'Saving…' : 'Save sale'}
           </button>
-        </div>
+        </aside>
       </form>
 
       {addingCustomer && (

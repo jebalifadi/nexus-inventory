@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import * as api from '../api'
 import { useIsOwner } from '../auth'
-import { columnFields, displayValue, nameFields } from '../catalog'
+import { columnFields, displayValue, nameFields, formatNumber } from '../catalog'
 import { ConfirmDeleteDialog } from '../components/Dialog'
 import { EditCategoryDialog } from '../components/EditCategoryDialog'
 import { EditProductDialog } from '../components/EditProductDialog'
@@ -190,7 +190,7 @@ export function CatalogPage() {
                         {columns.map((f) => (
                           <td key={f.key}>{displayValue(f, product.attributes[f.key])}</td>
                         ))}
-                        <td className="num">{(data.stockByProduct.get(product.id) ?? 0).toLocaleString()}</td>
+                        <td className="num">{formatNumber(data.stockByProduct.get(product.id) ?? 0)}</td>
                         {isOwner && (
                           <td className="num row-actions">
                             <button className="secondary" onClick={() => setOpen({ kind: 'editProduct', product, category })}>

@@ -4,6 +4,7 @@ import * as api from '../api'
 import { currencyDecimals, currencyStep } from '../catalog'
 import { FieldInput } from '../components/FieldInput'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 import { NewLocationForm } from '../components/NewLocationForm'
 import { NewProductForm } from '../components/NewProductForm'
 
@@ -42,7 +43,7 @@ export function AddStockPage() {
     Promise.all([api.fetchProducts(), api.fetchCategories(), api.fetchLocations(), api.fetchCurrencies()])
       .then(([products, categories, locations, currencies]) => {
         setData({ products, categories, locations, currencies })
-        setCurrency(currencies.includes('EUR') ? 'EUR' : (currencies[0] ?? ''))
+        setCurrency(defaultCurrency(currencies))
         if (locations.length === 1) setLocationId(locations[0].id)
       })
       .catch((e: Error) => setLoadError(e.message))
@@ -116,7 +117,7 @@ export function AddStockPage() {
       </div>
 
       <section className="card section">
-        <h2>1 · Product</h2>
+        <h2 className="step-title"><span className="step-no" aria-hidden="true">1</span>Product</h2>
         {creatingProduct ? (
           <NewProductForm
             categories={data.categories}
@@ -151,7 +152,7 @@ export function AddStockPage() {
       </section>
 
       <section className="card section">
-        <h2>2 · Stock</h2>
+        <h2 className="step-title"><span className="step-no" aria-hidden="true">2</span>Stock</h2>
         {!product ? (
           <p className="muted">Choose or create a product first.</p>
         ) : creatingLocation ? (

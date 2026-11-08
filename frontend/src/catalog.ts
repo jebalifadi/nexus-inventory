@@ -80,10 +80,22 @@ export function displayValue(field: CategoryField, value: string | undefined): s
   return value
 }
 
-/** "412.00 EUR" → "€412.00", using the browser's language for the number format. */
+/** Number and date format, set from the app's language (see I18nProvider); never the browser's own. */
+let displayLocale = 'en-GB'
+
+export function setDisplayLocale(locale: string) {
+  displayLocale = locale
+}
+
+export const getDisplayLocale = () => displayLocale
+
+/** A count in the app's language: 1,234 in English, 1.234 in German. */
+export const formatNumber = (n: number) => n.toLocaleString(displayLocale)
+
+/** "412.00 EUR" → "€412.00" (or "412,00 €" in German), following the chosen language. */
 export function formatMoney(money: Money): string {
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: money.currency }).format(
+    return new Intl.NumberFormat(displayLocale, { style: 'currency', currency: money.currency }).format(
       Number(money.amount),
     )
   } catch {
@@ -91,8 +103,12 @@ export function formatMoney(money: Money): string {
   }
 }
 
+/** Shows a date in the chosen language: "7 Nov 2026", "07.11.2026"… */
+export const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
+
 export function formatDate(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString(displayLocale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -112,4 +128,20 @@ export const STATUS_LABELS: Record<UnitStatus, string> = {
   CLOSED: 'Closed',
   RETURNED: 'Returned',
   CANCELLED: 'Cancelled',
+}
+
+/** Profit shown with its sign: "+€135.90" or "−€12.00" (a real minus sign, not a hyphen). */
+export function formatSigned(money: Money): string {
+  const value = Number(money.amount)
+  const text = formatMoney({ ...money, amount: String(Math.abs(value)) })
+  return value > 0 ? `+${text}` : value < 0 ? `−${text}` : text
+}
+
+/** CSS class for a profit: green when positive, red when negative. */
+export const profitClass = (money: Money) => (Number(money.amount) < 0 ? 'loss' : Number(money.amount) > 0 ? 'profit' : '')
+
+export const PAYMENT_PILL: Record<PaymentStatus, string> = {
+  PAID: 'pill pill-paid',
+  PARTIALLY_PAID: 'pill pill-part',
+  PENDING: 'pill pill-unpaid',
 }

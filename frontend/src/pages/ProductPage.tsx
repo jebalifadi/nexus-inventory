@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import * as api from '../api'
 import { useIsOwner } from '../auth'
-import { HELD_STATUSES, STATUS_LABELS, displayValue, formatDate, formatMoney, itemFields } from '../catalog'
+import { HELD_STATUSES, STATUS_LABELS, displayValue, formatDate, formatMoney, itemFields, formatNumber } from '../catalog'
 import { ConfirmDeleteDialog } from '../components/Dialog'
 import { EditProductDialog } from '../components/EditProductDialog'
 import { Layout } from '../components/Layout'
@@ -183,14 +183,14 @@ export function ProductPage() {
         <section className="card section">
           <h2 className="h-sm">In stock</h2>
           <div className="big-number">
-            <span>{inStock.toLocaleString()}</span>
+            <span>{formatNumber(inStock)}</span>
             <span className="muted">{inStock === 1 ? 'piece' : 'pieces'}</span>
           </div>
           <div className="stack tight">
             {stock.map((s) => (
               <div className="spread" key={s.locationId}>
                 <span className="muted-strong">{s.locationName}</span>
-                <span className="strong num">{s.quantity.toLocaleString()}</span>
+                <span className="strong num">{formatNumber(s.quantity)}</span>
               </div>
             ))}
           </div>
@@ -303,8 +303,8 @@ export function ProductPage() {
                 {shownLots.map((l) => (
                   <tr key={l.id}>
                     <td className="sku">{l.id}</td>
-                    <td className="num">{l.quantityReceived.toLocaleString()}</td>
-                    <td className="num strong">{l.quantityRemaining.toLocaleString()}</td>
+                    <td className="num">{formatNumber(l.quantityReceived)}</td>
+                    <td className="num strong">{formatNumber(l.quantityRemaining)}</td>
                     <td className="num">{formatMoney(l.unitCost)}</td>
                     <td className="muted-strong">{location(l.locationId)}</td>
                     <td className="muted-strong nowrap">{formatDate(l.receivedDate)}</td>
@@ -381,7 +381,7 @@ export function ProductPage() {
           requireReason
           message={
             <p>
-              All {open.lot.quantityRemaining.toLocaleString()} pieces of this batch ({formatMoney(open.lot.unitCost)} each,{' '}
+              All {formatNumber(open.lot.quantityRemaining)} pieces of this batch ({formatMoney(open.lot.unitCost)} each,{' '}
               {location(open.lot.locationId)}) leave the stock and move to the trash, where they can be restored.
             </p>
           }

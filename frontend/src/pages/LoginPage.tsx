@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth'
+import { PulsingLogo } from '../components/Logo'
+import { useT } from '../i18n/context'
 
 export function LoginPage() {
   const { session, login } = useAuth()
+  const t = useT()
   const navigate = useNavigate()
   const location = useLocation()
   const [username, setUsername] = useState('')
@@ -11,8 +14,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  // Where to go after login: the page the user wanted, or the inventory.
-  const from = (location.state as { from?: string } | null)?.from ?? '/inventory'
+  // Where to go after login: the page the user wanted, or the dashboard.
+  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
 
   if (session) return <Navigate to={from} replace />
 
@@ -24,7 +27,7 @@ export function LoginPage() {
       await login(username, password)
       navigate(from, { replace: true })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Login failed')
+      setError(e instanceof Error ? e.message : t('login.failed'))
       setBusy(false)
     }
   }
@@ -32,11 +35,14 @@ export function LoginPage() {
   return (
     <main className="login">
       <form className="card login-card" onSubmit={handleSubmit}>
-        <h1 className="brand">Nexus</h1>
-        <p className="muted">Sign in to manage your inventory.</p>
+        <div className="login-brand">
+          <PulsingLogo />
+          <h1 className="brand">Nexus</h1>
+        </div>
+        <p className="muted">{t('login.intro')}</p>
 
         <label>
-          Username
+          {t('login.username')}
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -47,7 +53,7 @@ export function LoginPage() {
         </label>
 
         <label>
-          Password
+          {t('login.password')}
           <input
             type="password"
             value={password}
@@ -64,7 +70,7 @@ export function LoginPage() {
         )}
 
         <button type="submit" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? t('login.signingIn') : t('login.signIn')}
         </button>
       </form>
     </main>

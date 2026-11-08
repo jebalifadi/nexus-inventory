@@ -4,6 +4,7 @@ import { useIsOwner } from '../auth'
 import { formatDate, formatMoney, today } from '../catalog'
 import { ActionForm, Dialog } from '../components/Dialog'
 import { Layout } from '../components/Layout'
+import { defaultCurrency } from '../i18n/context'
 
 /** The database keeps 8 decimals and rounds anything longer, so the form stops there. */
 const RATE_STEP = '0.00000001'
@@ -111,7 +112,7 @@ type DialogProps = {
 }
 
 function AddRateDialog({ rates, currencies, onSaved, onClose }: DialogProps) {
-  const [base, setBase] = useState(currencies.includes('EUR') ? 'EUR' : (currencies[0] ?? ''))
+  const [base, setBase] = useState(defaultCurrency(currencies))
   const [quote, setQuote] = useState(currencies.includes('TND') ? 'TND' : (currencies[1] ?? ''))
   const [rate, setRate] = useState('')
   const [rateDate, setRateDate] = useState(today)

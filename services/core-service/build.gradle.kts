@@ -4,7 +4,13 @@ plugins {
 }
 
 group = "com.nexus"
-version = "0.1.0-SNAPSHOT"
+version = file("../../VERSION").readText().trim()
+
+springBoot {
+    buildInfo {
+        excludes = setOf("time") // otherwise every build counts as changed
+    }
+}
 
 java {
     toolchain {

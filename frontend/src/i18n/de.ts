@@ -93,6 +93,7 @@ export const de: Messages = {
   'set.currency': 'Standardwährung',
   'set.currencyHint': 'Das Dashboard zeigt alles in dieser Währung, umgerechnet mit deinen Kursen. Sie wird auch bei neuen Verkäufen, Einkäufen und Ausgaben vorausgewählt.',
   'set.onDevice': 'Diese Einstellungen werden auf diesem Computer gespeichert, nur für dich.',
+  'set.version': 'Version {version}',
   'set.saved': 'Gespeichert.',
   'set.locIntro': 'Wo du Ware lagerst: ein Laden, ein Lager, ein Land. Bestand, Verkäufe und Sendungen nutzen sie.',
   'set.locName': 'Name',

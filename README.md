@@ -124,6 +124,25 @@ git --version
    npm run test:browser
    ```
 
+## Versions and upgrades
+
+The current version is in `VERSION` and shown in Settings. [CHANGELOG.md](CHANGELOG.md) lists what
+changed in each one, and every release has a Git tag such as `v0.3.0`.
+
+To release: update `VERSION` and `CHANGELOG.md`, merge, then tag `main` and push the tag.
+
+To upgrade, stop Nexus, run `scripts/backup.sh`, get the new code and run `scripts/start.sh`.
+
+To go back to an earlier version, restore the backup made before the upgrade as well, because
+database changes only go forward:
+
+```bash
+scripts/stop.sh
+git checkout v0.2.0
+scripts/restore.sh <backup made before the upgrade>
+scripts/start.sh
+```
+
 ## Environment variables
 
 Copy `.env.example` to `.env` to override the local defaults; `scripts/start.sh` reads it. `.env` is never committed.

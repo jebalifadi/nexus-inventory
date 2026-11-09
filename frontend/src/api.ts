@@ -187,6 +187,10 @@ export async function fetchCurrencies(): Promise<string[]> {
   return (await request<{ supportedCurrencies: string[] }>('/api/v1/system/info')).supportedCurrencies
 }
 
+export async function fetchVersion(): Promise<string> {
+  return (await request<{ version: string }>('/api/v1/system/info')).version
+}
+
 export function fetchCategories(): Promise<Category[]> {
   return request<Category[]>('/api/v1/categories')
 }

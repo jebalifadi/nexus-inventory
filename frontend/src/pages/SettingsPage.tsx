@@ -52,9 +52,11 @@ export function SettingsPage() {
 function GeneralTab() {
   const { preferences, setPreferences, t } = useI18n()
   const [currencies, setCurrencies] = useState<string[]>([])
+  const [version, setVersion] = useState<string | null>(null)
 
   useEffect(() => {
     api.fetchCurrencies().then(setCurrencies).catch(() => setCurrencies([]))
+    api.fetchVersion().then(setVersion).catch(() => setVersion(null))
   }, [])
 
   const themes: { id: Theme; label: string }[] = [
@@ -112,6 +114,7 @@ function GeneralTab() {
       </label>
 
       <p className="hint small">{t('set.onDevice')}</p>
+      {version && <p className="muted small">{t('set.version', { version })}</p>}
     </section>
   )
 }

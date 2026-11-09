@@ -98,6 +98,7 @@ export const en = {
   'set.currency': 'Default currency',
   'set.currencyHint': 'The dashboard shows everything in this currency, using your exchange rates. It is also chosen first in new sales, purchases and expenses.',
   'set.onDevice': 'These choices are saved on this computer, for you only.',
+  'set.version': 'Version {version}',
   'set.saved': 'Saved.',
   'set.locIntro': 'Where you keep goods: a shop, a warehouse, a country. Stock, sales and shipments use them.',
   'set.locName': 'Name',

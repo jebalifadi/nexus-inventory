@@ -13,7 +13,6 @@ import com.nexus.core.report.ReportPosition.Row;
 import com.nexus.core.sale.Sale;
 import com.nexus.core.sale.SaleService;
 import com.nexus.core.settings.BusinessSettingsService;
-import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shipment.Shipment;
 import com.nexus.core.shipment.ShipmentService;
 import com.nexus.core.stock.StockService;
@@ -22,12 +21,13 @@ import com.nexus.core.writeoff.WriteOffService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Currency;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
-import java.util.function.Function;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -77,35 +77,55 @@ public class ReportService {
      */
     @Transactional(readOnly = true)
     public ReportSummary summarize(LocalDate from, LocalDate to, String currency) {
-        if (from != null && to != null && from.isAfter(to)) {
-            throw new BusinessRuleException("The period must not start after it ends");
+        ReportPeriod period = new ReportPeriod(from, to);
+        ReportConverter converter = new ReportConverter(rates, currency);
+        return figures(loadActivity(), period, converter);
+    }
+
+    /** Month by month, using the same figures as {@link #summarize}. Without a start, from the first activity. */
+    @Transactional(readOnly = true)
+    public MonthlyTrend trend(LocalDate from, LocalDate to, String currency) {
+        new ReportPeriod(from, to);
+        ReportConverter converter = new ReportConverter(rates, currency);
+        Activity activity = loadActivity();
+        LocalDate start = from != null ? from : activity.firstDay().orElse(null);
+        LocalDate end = to != null ? to : LocalDate.now();
+        List<MonthlyTrend.Month> months = new ArrayList<>();
+        if (start != null && !start.isAfter(end)) {
+            for (YearMonth month = YearMonth.from(start); !month.isAfter(YearMonth.from(end)); month = month.plusMonths(1)) {
+                LocalDate first = month.atDay(1).isBefore(start) ? start : month.atDay(1);
+                LocalDate last = month.atEndOfMonth().isAfter(end) ? end : month.atEndOfMonth();
+                ReportSummary f = figures(activity, new ReportPeriod(first, last), converter);
+                months.add(new MonthlyTrend.Month(month.toString(), f.revenue(), f.profit(), f.salesCount(),
+                        f.unknownProfitCount()));
+            }
         }
-        String target = requireCurrency(currency);
-        Converter converter = new Converter(target);
-        Period period = new Period(from, to);
+        return new MonthlyTrend(converter.target(), months, converter.missing());
+    }
 
-        List<Purchase> allPurchases = purchases.listPurchases();
-        List<Sale> allSales = sales.listSales();
-        List<Expense> allExpenses = expenses.listExpenses();
-        boolean hasActivity = !allPurchases.isEmpty() || !allSales.isEmpty() || !allExpenses.isEmpty();
+    private Activity loadActivity() {
+        return new Activity(purchases.listPurchases(), shipments.listShipments(), sales.listSales(),
+                expenses.listExpenses(), writeOffs.listWriteOffs());
+    }
 
-        List<Sale> salesInPeriod = period.keep(allSales, Sale::saleDate);
-        List<Expense> expensesInPeriod = period.keep(allExpenses, Expense::expenseDate);
-        List<WriteOff> writeOffsInPeriod = period.keep(writeOffs.listWriteOffs(), WriteOff::date);
+    private static ReportSummary figures(Activity all, ReportPeriod period, ReportConverter converter) {
+        boolean hasActivity = !all.purchases().isEmpty() || !all.sales().isEmpty() || !all.expenses().isEmpty();
+        List<Sale> salesInPeriod = period.keep(all.sales(), Sale::saleDate);
+        List<Expense> expensesInPeriod = period.keep(all.expenses(), Expense::expenseDate);
 
-        Money boughtFor = converter.total(period.keep(allPurchases, Purchase::purchaseDate),
+        Money boughtFor = converter.total(period.keep(all.purchases(), Purchase::purchaseDate),
                 Purchase::total, Purchase::purchaseDate);
-        Money shipping = converter.total(period.keep(shipments.listShipments(), Shipment::shippedDate),
+        Money shipping = converter.total(period.keep(all.shipments(), Shipment::shippedDate),
                 Shipment::cost, Shipment::shippedDate);
         Money revenue = converter.total(salesInPeriod, Sale::total, Sale::saleDate)
                 .minus(converter.total(salesInPeriod, Sale::returns, Sale::saleDate));
         Money spent = converter.total(expensesInPeriod, Expense::amount, Expense::expenseDate);
-        Money losses = Money.zero(target);
-        for (WriteOff writeOff : writeOffsInPeriod) {
+        Money losses = converter.zero();
+        for (WriteOff writeOff : period.keep(all.writeOffs(), WriteOff::date)) {
             losses = losses.plus(converter.total(writeOff.cost(), part -> part, part -> writeOff.date()));
         }
 
-        Money salesProfit = Money.zero(target);
+        Money salesProfit = converter.zero();
         int unknownProfit = 0;
         for (Sale sale : salesInPeriod) {
             Optional<Money> profit = sale.profit() == null ? Optional.empty()
@@ -123,35 +143,34 @@ public class ReportService {
                 Expense::amount, Expense::expenseDate);
         Money profit = salesProfit.minus(generalCosts).minus(losses);
 
-        return new ReportSummary(target, hasActivity, boughtFor, shipping, boughtFor.plus(shipping), revenue, spent,
-                losses, spent.plus(losses), profit, marginPercent(profit, revenue), salesInPeriod.size(), unknownProfit,
-                converter.missing());
+        return new ReportSummary(converter.target(), hasActivity, boughtFor, shipping, boughtFor.plus(shipping), revenue,
+                spent, losses, spent.plus(losses), profit, marginPercent(profit, revenue), salesInPeriod.size(),
+                unknownProfit, converter.missing());
     }
 
     /** Stock value and open balances today, at today's rate. */
     @Transactional(readOnly = true)
     public ReportPosition position(String currency) {
-        String target = requireCurrency(currency);
-        Converter converter = new Converter(target);
+        ReportConverter converter = new ReportConverter(rates, currency);
         LocalDate today = LocalDate.now();
 
-        Money stockValue = Money.zero(target);
+        Money stockValue = converter.zero();
         for (Map.Entry<String, BigDecimal> value : stock.stockValueByCurrency().entrySet()) {
             Money amount = Money.of(value.getValue().toPlainString(), value.getKey());
-            stockValue = stockValue.plus(converter.convert(amount, today).orElse(Money.zero(target)));
+            stockValue = stockValue.plus(converter.convertOrZero(amount, today));
         }
         int reminderDays = settings.current().paymentReminderDays();
-        return new ReportPosition(target, stockValue, openBalances(payments.receivables(), converter, today, reminderDays),
+        return new ReportPosition(converter.target(), stockValue, openBalances(payments.receivables(), converter, today, reminderDays),
                 openBalances(payments.payables(), converter, today, reminderDays), converter.missing());
     }
 
-    private static OpenBalances openBalances(List<OpenBalance> balances, Converter converter, LocalDate today,
+    private static OpenBalances openBalances(List<OpenBalance> balances, ReportConverter converter, LocalDate today,
                                              int reminderDays) {
-        Money total = Money.zero(converter.target);
-        List<Row> rows = new java.util.ArrayList<>();
+        Money total = converter.zero();
+        List<Row> rows = new ArrayList<>();
         for (OpenBalance balance : balances) {
             Optional<Money> converted = converter.convert(balance.balance(), today);
-            total = total.plus(converted.orElse(Money.zero(converter.target)));
+            total = total.plus(converted.orElse(converter.zero()));
             rows.add(new Row(balance.reference(), balance.counterparty(), balance.date(), balance.daysOpen(),
                     balance.balance(), converted.orElse(null), balance.daysOpen() > reminderDays));
         }
@@ -165,56 +184,14 @@ public class ReportService {
         return profit.amount().multiply(HUNDRED).divide(revenue.amount(), 1, RoundingMode.HALF_UP);
     }
 
-    private static String requireCurrency(String code) {
-        try {
-            return Currency.getInstance(code.strip().toUpperCase()).getCurrencyCode();
-        } catch (IllegalArgumentException e) {
-            throw new BusinessRuleException("Unknown currency: " + code);
-        }
-    }
+    private record Activity(List<Purchase> purchases, List<Shipment> shipments, List<Sale> sales,
+                            List<Expense> expenses, List<WriteOff> writeOffs) {
 
-    /** Converts amounts into one currency for one report, and remembers which rates were missing. */
-    private final class Converter {
-
-        private final String target;
-        private final Map<String, LocalDate> missing = new TreeMap<>();
-
-        Converter(String target) {
-            this.target = target;
-        }
-
-        Optional<Money> convert(Money amount, LocalDate day) {
-            Optional<Money> converted = rates.convert(amount, target, day);
-            if (converted.isEmpty()) {
-                // A rate covers its own date and every later one, so the earliest day is the one to name.
-                missing.merge(amount.currency().getCurrencyCode(), day, (a, b) -> a.isBefore(b) ? a : b);
-            }
-            return converted;
-        }
-
-        <T> Money total(List<T> items, Function<T, Money> amount, Function<T, LocalDate> day) {
-            Money total = Money.zero(target);
-            for (T item : items) {
-                total = total.plus(convert(amount.apply(item), day.apply(item)).orElse(Money.zero(target)));
-            }
-            return total;
-        }
-
-        List<MissingRate> missing() {
-            return missing.entrySet().stream()
-                    .map(entry -> new MissingRate(entry.getKey(), target, entry.getValue()))
-                    .toList();
-        }
-    }
-
-    private record Period(LocalDate from, LocalDate to) {
-
-        <T> List<T> keep(List<T> items, Function<T, LocalDate> date) {
-            return items.stream().filter(item -> contains(date.apply(item))).toList();
-        }
-
-        private boolean contains(LocalDate day) {
-            return (from == null || !day.isBefore(from)) && (to == null || !day.isAfter(to));
+        Optional<LocalDate> firstDay() {
+            return Stream.of(sales.stream().map(Sale::saleDate), expenses.stream().map(Expense::expenseDate),
+                            writeOffs.stream().map(WriteOff::date))
+                    .flatMap(days -> days)
+                    .min(Comparator.naturalOrder());
         }
     }
 }

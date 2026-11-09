@@ -108,7 +108,7 @@ function BusinessSection() {
   const { preferences, setPreferences, t } = useI18n()
   const isOwner = useIsOwner()
   const [currencies, setCurrencies] = useState<string[]>([])
-  const [form, setForm] = useState<{ currency: string; lowStockLimit: string; paymentReminderDays: string } | null>(null)
+  const [form, setForm] = useState<{ currency: string; lowStockLimit: string; paymentReminderDays: string; slowStockDays: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -121,6 +121,7 @@ function BusinessSection() {
           currency: settings.currency ?? (preferences.currency || defaultCurrency(available)),
           lowStockLimit: String(settings.lowStockLimit),
           paymentReminderDays: String(settings.paymentReminderDays),
+          slowStockDays: String(settings.slowStockDays),
         })
       })
       .catch((e: Error) => setError(e.message))
@@ -143,6 +144,7 @@ function BusinessSection() {
         currency: form.currency,
         lowStockLimit: Number(form.lowStockLimit),
         paymentReminderDays: Number(form.paymentReminderDays),
+        slowStockDays: Number(form.slowStockDays),
       })
       setPreferences({ currency: result.currency ?? '' })
       setSaved(true)
@@ -194,6 +196,19 @@ function BusinessSection() {
               disabled={!isOwner}
               value={form.paymentReminderDays}
               onChange={(e) => change({ paymentReminderDays: e.target.value })}
+            />
+          </label>
+          <label className="setting">
+            <span className="label">{t('set.slowStock')}</span>
+            <span className="muted small">{t('set.slowStockHint')}</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              required
+              disabled={!isOwner}
+              value={form.slowStockDays}
+              onChange={(e) => change({ slowStockDays: e.target.value })}
             />
           </label>
           {isOwner ? (

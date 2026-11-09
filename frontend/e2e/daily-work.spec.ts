@@ -116,6 +116,44 @@ test('the dashboard adds it all up', async ({ page }) => {
   await expect(bigNumber(page, 'Profit').locator('.loss')).toBeVisible()
 })
 
+test('analytics shows what sold, what earned and the months', async ({ page, request }, testInfo) => {
+  // An earlier month, so the chart has more than one point: 5 at 2 EUR bought, 2 sold at 15.
+  const daysAgo = (n: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() - n)
+    return d.toLocaleDateString('sv')
+  }
+  await post(request, '/api/v1/purchases', {
+    supplierId,
+    purchaseDate: daysAgo(40),
+    currency: 'EUR',
+    lines: [{ productId: soldProductId, locationId, quantity: 5, unitPrice: '2' }],
+  })
+  await post(request, '/api/v1/sales', {
+    locationId,
+    saleDate: daysAgo(35),
+    currency: 'EUR',
+    lines: [{ productId: soldProductId, quantity: 2, unitPrice: '15', warrantyDays: 0 }],
+  })
+
+  await signIn(page)
+  await page.goto('/analytics')
+  const bestSellers = page.locator('section', { has: page.getByRole('heading', { name: 'Best sellers' }) })
+  await expect(bestSellers.getByRole('row', { name: /SOLD-1/ })).toContainText('4')
+  await expect(bestSellers.getByRole('row', { name: /SOLD-1/ })).toContainText('50.00') // 20 + 30
+  const perCategory = page.locator('section', { has: page.getByRole('heading', { name: 'Profit per category' }) })
+  await expect(perCategory.getByRole('row', { name: /Cables/ })).toContainText('38.00') // 2 × 6 + 2 × 13
+  await expect(page.getByText('Nothing has been in stock that long.')).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Revenue and profit by month' })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('analytics-light.png'), fullPage: true })
+
+  // The readout follows the pointer.
+  await page.locator('.trend-hit').hover()
+  await expect(page.locator('.trend-tip')).toBeVisible()
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.screenshot({ path: testInfo.outputPath('analytics-dark.png'), fullPage: true })
+})
+
 test('comparing periods shows a change on all four cards', async ({ page }) => {
   await signIn(page)
   await page.locator('.head-tools button').first().click()

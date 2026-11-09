@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BusinessSettingsService {
 
-    private static final BusinessSettings DEFAULTS = new BusinessSettings(null, 5, 30);
+    private static final BusinessSettings DEFAULTS = new BusinessSettings(null, 5, 30, 90);
     private static final int MAX_LOW_STOCK_LIMIT = 100_000;
     private static final int MAX_REMINDER_DAYS = 3_650;
 
@@ -24,7 +24,8 @@ public class BusinessSettingsService {
     }
 
     @Transactional
-    public BusinessSettings update(String currency, Integer lowStockLimit, Integer paymentReminderDays) {
+    public BusinessSettings update(String currency, Integer lowStockLimit, Integer paymentReminderDays,
+                                   Integer slowStockDays) {
         if (currency == null || currency.isBlank()) {
             throw new BusinessRuleException("Choose a currency");
         }
@@ -34,9 +35,12 @@ public class BusinessSettingsService {
         if (paymentReminderDays == null || paymentReminderDays < 1 || paymentReminderDays > MAX_REMINDER_DAYS) {
             throw new BusinessRuleException("Payment reminder must be between 1 and " + MAX_REMINDER_DAYS + " days");
         }
+        if (slowStockDays == null || slowStockDays < 1 || slowStockDays > MAX_REMINDER_DAYS) {
+            throw new BusinessRuleException("Slow-moving stock must be between 1 and " + MAX_REMINDER_DAYS + " days");
+        }
         // An unknown currency is refused by the database, which lists the currencies Nexus supports.
         BusinessSettings settings = new BusinessSettings(currency.strip().toUpperCase(), lowStockLimit,
-                paymentReminderDays);
+                paymentReminderDays, slowStockDays);
         repository.save(settings);
         return settings;
     }

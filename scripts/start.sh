@@ -30,6 +30,7 @@ command -v node >/dev/null || { echo "Node.js is missing: brew install node" >&2
 if [ -f "$ROOT/.env" ]; then
   set -a; . "$ROOT/.env"; set +a
 fi
+export NEXUS_RATES_BANK_SYNC="${NEXUS_RATES_BANK_SYNC:-true}"
 
 # 3. Database
 echo "Starting the database…"

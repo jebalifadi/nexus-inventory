@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ExchangeRateService {
 
+    static final String BANK_SOURCE = "BCT";
+
     private final ExchangeRateRepository repository;
 
     ExchangeRateService(ExchangeRateRepository repository) {
@@ -36,8 +38,16 @@ public class ExchangeRateService {
         if (rate == null || rate.signum() <= 0) {
             throw new BusinessRuleException("Rate must be more than zero");
         }
-        long id = repository.insert(from, to, rate, rateDate == null ? LocalDate.now() : rateDate, "MANUAL");
+        LocalDate day = rateDate == null ? LocalDate.now() : rateDate;
+        repository.deleteFromSource(from, to, day, BANK_SOURCE); // what the owner enters wins over the bank
+        long id = repository.insert(from, to, rate, day, "MANUAL");
         return repository.findById(id).orElseThrow();
+    }
+
+    /** Stores a rate from the bank, unless that day already has one for this pair, in either direction. */
+    @Transactional
+    void saveBankRate(String base, String quote, BigDecimal rate, LocalDate day) {
+        repository.insertIfNoRateThatDay(base, quote, rate, day, BANK_SOURCE);
     }
 
     @Transactional(readOnly = true)

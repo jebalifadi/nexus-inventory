@@ -291,7 +291,7 @@ function OpenBalances({ title, empty, balances, link }: OpenProps) {
                       <span className="sku">{r.reference}</span> · {formatDate(r.date)}
                     </div>
                   </td>
-                  <td className={`num small${r.daysOpen > 30 ? ' warning-text' : ' muted'}`}>{t('dash.days', { n: r.daysOpen })}</td>
+                  <td className={`num small${r.overdue ? ' warning-text' : ' muted'}`}>{t('dash.days', { n: r.daysOpen })}</td>
                   <td className="num strong">
                     {formatMoney(r.converted ?? r.balance)}
                     {r.converted && r.converted.currency !== r.balance.currency && (

@@ -12,6 +12,7 @@ import com.nexus.core.report.ReportPosition.OpenBalances;
 import com.nexus.core.report.ReportPosition.Row;
 import com.nexus.core.sale.Sale;
 import com.nexus.core.sale.SaleService;
+import com.nexus.core.settings.BusinessSettingsService;
 import com.nexus.core.shared.BusinessRuleException;
 import com.nexus.core.shipment.Shipment;
 import com.nexus.core.shipment.ShipmentService;
@@ -51,9 +52,11 @@ public class ReportService {
     private final StockService stock;
     private final PaymentService payments;
     private final ExchangeRateService rates;
+    private final BusinessSettingsService settings;
 
     ReportService(PurchaseService purchases, ShipmentService shipments, SaleService sales, ExpenseService expenses,
-                  WriteOffService writeOffs, StockService stock, PaymentService payments, ExchangeRateService rates) {
+                  WriteOffService writeOffs, StockService stock, PaymentService payments, ExchangeRateService rates,
+                  BusinessSettingsService settings) {
         this.purchases = purchases;
         this.shipments = shipments;
         this.sales = sales;
@@ -62,6 +65,7 @@ public class ReportService {
         this.stock = stock;
         this.payments = payments;
         this.rates = rates;
+        this.settings = settings;
     }
 
     /**
@@ -136,18 +140,20 @@ public class ReportService {
             Money amount = Money.of(value.getValue().toPlainString(), value.getKey());
             stockValue = stockValue.plus(converter.convert(amount, today).orElse(Money.zero(target)));
         }
-        return new ReportPosition(target, stockValue, openBalances(payments.receivables(), converter, today),
-                openBalances(payments.payables(), converter, today), converter.missing());
+        int reminderDays = settings.current().paymentReminderDays();
+        return new ReportPosition(target, stockValue, openBalances(payments.receivables(), converter, today, reminderDays),
+                openBalances(payments.payables(), converter, today, reminderDays), converter.missing());
     }
 
-    private static OpenBalances openBalances(List<OpenBalance> balances, Converter converter, LocalDate today) {
+    private static OpenBalances openBalances(List<OpenBalance> balances, Converter converter, LocalDate today,
+                                             int reminderDays) {
         Money total = Money.zero(converter.target);
         List<Row> rows = new java.util.ArrayList<>();
         for (OpenBalance balance : balances) {
             Optional<Money> converted = converter.convert(balance.balance(), today);
             total = total.plus(converted.orElse(Money.zero(converter.target)));
             rows.add(new Row(balance.reference(), balance.counterparty(), balance.date(), balance.daysOpen(),
-                    balance.balance(), converted.orElse(null)));
+                    balance.balance(), converted.orElse(null), balance.daysOpen() > reminderDays));
         }
         return new OpenBalances(total, rows);
     }

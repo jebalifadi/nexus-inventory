@@ -32,11 +32,11 @@ class ReportController {
     }
 
     record RowView(String reference, String counterparty, LocalDate date, long daysOpen, MoneyJson balance,
-                   MoneyJson converted) {
+                   MoneyJson converted, boolean overdue) {
 
         static RowView of(Row r) {
             return new RowView(r.reference(), r.counterparty(), r.date(), r.daysOpen(), MoneyJson.of(r.balance()),
-                    MoneyJson.of(r.converted()));
+                    MoneyJson.of(r.converted()), r.overdue());
         }
     }
 

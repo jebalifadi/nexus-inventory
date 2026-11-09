@@ -3,6 +3,13 @@
 What changed in each version of Nexus. Versions follow [Semantic Versioning](https://semver.org):
 while Nexus is below 1.0, the middle number goes up for new features and the last one for fixes.
 
+## Unreleased
+
+### Added
+
+- Business settings saved on the server: default currency, low-stock limit and payment reminder.
+  They are the same on every computer, and only the owner can change them.
+
 ## 0.3.0 - 2026-11-09
 
 The web app is complete, and Phase 3 (Insight) has started.

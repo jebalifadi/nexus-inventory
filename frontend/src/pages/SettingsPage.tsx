@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import * as api from '../api'
 import { useAuth, useIsOwner } from '../auth'
@@ -38,6 +38,7 @@ export function SettingsPage() {
         </nav>
         <div className="stack">
           {tab === 'general' && <GeneralTab />}
+          {tab === 'general' && <BusinessSection />}
           {tab === 'locations' && <LocationsTab />}
           {tab === 'users' && <UsersTab />}
           {tab === 'trash' && <TrashTab />}
@@ -51,11 +52,9 @@ export function SettingsPage() {
 
 function GeneralTab() {
   const { preferences, setPreferences, t } = useI18n()
-  const [currencies, setCurrencies] = useState<string[]>([])
   const [version, setVersion] = useState<string | null>(null)
 
   useEffect(() => {
-    api.fetchCurrencies().then(setCurrencies).catch(() => setCurrencies([]))
     api.fetchVersion().then(setVersion).catch(() => setVersion(null))
   }, [])
 
@@ -98,24 +97,116 @@ function GeneralTab() {
         </div>
       </fieldset>
 
-      <label className="setting">
-        <span className="label">{t('set.currency')}</span>
-        <span className="muted small">{t('set.currencyHint')}</span>
-        <select
-          value={preferences.currency || defaultCurrency(currencies)}
-          onChange={(e) => setPreferences({ currency: e.target.value })}
-        >
-          {currencies.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </label>
-
       <p className="hint small">{t('set.onDevice')}</p>
       {version && <p className="muted small">{t('set.version', { version })}</p>}
     </section>
+  )
+}
+
+/** Saved on the server, so every computer and every person sees the same. Only the owner can change it. */
+function BusinessSection() {
+  const { preferences, setPreferences, t } = useI18n()
+  const isOwner = useIsOwner()
+  const [currencies, setCurrencies] = useState<string[]>([])
+  const [form, setForm] = useState<{ currency: string; lowStockLimit: string; paymentReminderDays: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    Promise.all([api.fetchCurrencies(), api.fetchBusinessSettings()])
+      .then(([available, settings]) => {
+        setCurrencies(available)
+        setForm({
+          currency: settings.currency ?? (preferences.currency || defaultCurrency(available)),
+          lowStockLimit: String(settings.lowStockLimit),
+          paymentReminderDays: String(settings.paymentReminderDays),
+        })
+      })
+      .catch((e: Error) => setError(e.message))
+    // Loaded once: later changes to the preference come from this form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function change(part: Partial<NonNullable<typeof form>>) {
+    setSaved(false)
+    setForm((current) => (current ? { ...current, ...part } : current))
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    if (!form) return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await api.saveBusinessSettings({
+        currency: form.currency,
+        lowStockLimit: Number(form.lowStockLimit),
+        paymentReminderDays: Number(form.paymentReminderDays),
+      })
+      setPreferences({ currency: result.currency ?? '' })
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="card section" onSubmit={save}>
+      <h2>{t('set.business')}</h2>
+      {error && <p className="error" role="alert">{error}</p>}
+      {form && (
+        <>
+          <label className="setting">
+            <span className="label">{t('set.currency')}</span>
+            <span className="muted small">{t('set.currencyHint')}</span>
+            <select value={form.currency} disabled={!isOwner} onChange={(e) => change({ currency: e.target.value })}>
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="setting">
+            <span className="label">{t('set.lowStock')}</span>
+            <span className="muted small">{t('set.lowStockHint')}</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              required
+              disabled={!isOwner}
+              value={form.lowStockLimit}
+              onChange={(e) => change({ lowStockLimit: e.target.value })}
+            />
+          </label>
+          <label className="setting">
+            <span className="label">{t('set.reminderDays')}</span>
+            <span className="muted small">{t('set.reminderHint')}</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              required
+              disabled={!isOwner}
+              value={form.paymentReminderDays}
+              onChange={(e) => change({ paymentReminderDays: e.target.value })}
+            />
+          </label>
+          {isOwner ? (
+            <div className="row">
+              <button type="submit" disabled={busy}>{busy ? t('common.saving') : t('set.save')}</button>
+              {saved && <span className="muted small" role="status">{t('set.saved')}</span>}
+            </div>
+          ) : (
+            <p className="hint small">{t('set.ownerCanChange')}</p>
+          )}
+        </>
+      )}
+    </form>
   )
 }
 

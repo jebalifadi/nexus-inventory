@@ -10,6 +10,7 @@ import { WarrantyPage } from './pages/WarrantyPage'
 import { I18nProvider } from './i18n/I18nProvider'
 import { SettingsPage } from './pages/SettingsPage'
 import { AuthProvider, RequireAuth, RequireOwner } from './auth'
+import { BusinessSettingsSync } from './components/BusinessSettingsSync'
 import { AddStockPage } from './pages/AddStockPage'
 import { CapitalPage } from './pages/CapitalPage'
 import { CatalogPage } from './pages/CatalogPage'
@@ -25,6 +26,7 @@ export default function App() {
   return (
     <I18nProvider>
       <AuthProvider>
+        <BusinessSettingsSync />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

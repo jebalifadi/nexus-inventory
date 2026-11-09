@@ -29,8 +29,9 @@ public record ReportPosition(String currency, Money stockValue, OpenBalances owe
     /**
      * @param balance   what is open, in the currency of the sale or purchase
      * @param converted the same amount in the report's currency; null when no rate is known
+     * @param overdue   open for longer than the owner's payment reminder
      */
     public record Row(String reference, String counterparty, LocalDate date, long daysOpen, Money balance,
-                      Money converted) {
+                      Money converted, boolean overdue) {
     }
 }

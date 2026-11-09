@@ -93,6 +93,7 @@ export const fr: Messages = {
   'set.currency': 'Devise par défaut',
   'set.currencyHint': 'Le tableau de bord affiche tout dans cette devise, avec vos taux de change. Elle est aussi proposée en premier pour les ventes, achats et dépenses.',
   'set.onDevice': 'Ces choix sont enregistrés sur cet ordinateur, pour vous seulement.',
+  'set.version': 'Version {version}',
   'set.saved': 'Enregistré.',
   'set.locIntro': 'Là où vous gardez la marchandise : une boutique, un entrepôt, un pays. Le stock, les ventes et les expéditions les utilisent.',
   'set.locName': 'Nom',

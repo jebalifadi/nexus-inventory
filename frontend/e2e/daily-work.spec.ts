@@ -127,6 +127,7 @@ test('comparing periods shows a change on all four cards', async ({ page }) => {
 test('the dashboard follows the Settings currency and asks for a missing rate', async ({ page, request }) => {
   await signIn(page)
   await page.goto('/settings')
+  await expect(page.getByText(/^Version \d+\.\d+\.\d+$/)).toBeVisible()
   await page.getByLabel('Default currency').selectOption('TND')
   await page.goto('/dashboard')
   await expect(page.getByText('Some amounts cannot be converted to TND')).toBeVisible()

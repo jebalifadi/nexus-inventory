@@ -24,6 +24,7 @@ class SystemInfoIntegrationTest {
         SystemInfo info = controller.info();
 
         assertThat(info.application()).isEqualTo("Nexus");
+        assertThat(info.version()).matches("\\d+\\.\\d+\\.\\d+");
         assertThat(info.supportedCurrencies()).containsExactly("EUR", "TND", "USD");
     }
 }

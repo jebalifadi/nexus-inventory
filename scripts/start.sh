@@ -47,7 +47,7 @@ if ! running backend; then
   port_busy 8080 && { echo "Port 8080 is in use by another program (lsof -i :8080). Stop it first." >&2; exit 1; }
   echo "Building the backend…"
   (cd "$ROOT/services/core-service" && ./gradlew --quiet bootJar)
-  jar="$(ls "$ROOT"/services/core-service/build/libs/*.jar | grep -v -- '-plain.jar$' | head -1)"
+  jar="$(ls -t "$ROOT"/services/core-service/build/libs/*.jar | grep -v -- '-plain.jar$' | head -1)" # newest: older versions stay in the folder
   nohup java -jar "$jar" > "$RUN/backend.log" 2>&1 &
   echo $! > "$RUN/backend.pid"
   echo -n "Starting the backend"

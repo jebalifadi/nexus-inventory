@@ -128,6 +128,7 @@ Copy `.env.example` to `.env` to override the local defaults; `scripts/start.sh`
 | `NEXUS_OWNER_USERNAME` / `NEXUS_OWNER_PASSWORD` | `owner` / `change-me-please` (first start only) |
 | `NEXUS_BACKUP_DIR` | `~/Documents/nexus-backups` |
 | `NEXUS_BACKUP_KEEP` | `30` |
+| `NEXUS_RATES_BANK_SYNC` | `true` with `scripts/start.sh`, otherwise `false`: hourly rates from the Central Bank of Tunisia |
 
 ## Database migrations
 

@@ -43,6 +43,36 @@ class ExchangeRateRepository {
     }
 
     /** The most recent rate from base to quote on or before the date: the rate that was valid that day. */
+    void insertIfNoRateThatDay(String base, String quote, BigDecimal rate, LocalDate rateDate, String source) {
+        jdbc.sql("""
+                        INSERT INTO exchange_rates (base, quote, rate, rate_date, source)
+                        SELECT :base, :quote, :rate, :rateDate, :source
+                        WHERE NOT EXISTS (SELECT 1 FROM exchange_rates
+                                          WHERE base = :quote AND quote = :base AND rate_date = :rateDate)
+                        ON CONFLICT (base, quote, rate_date) DO NOTHING
+                        """)
+                .param("base", base)
+                .param("quote", quote)
+                .param("rate", rate)
+                .param("rateDate", rateDate)
+                .param("source", source)
+                .update();
+    }
+
+    /** Removes a pair's rate of that day, in either direction, if it came from the given source. */
+    void deleteFromSource(String base, String quote, LocalDate rateDate, String source) {
+        jdbc.sql("""
+                        DELETE FROM exchange_rates
+                        WHERE rate_date = :rateDate AND source = :source
+                          AND ((base = :base AND quote = :quote) OR (base = :quote AND quote = :base))
+                        """)
+                .param("base", base)
+                .param("quote", quote)
+                .param("rateDate", rateDate)
+                .param("source", source)
+                .update();
+    }
+
     Optional<ExchangeRate> findValidOn(String base, String quote, LocalDate date) {
         return jdbc.sql("SELECT " + COLUMNS + " FROM exchange_rates "
                         + "WHERE base = :base AND quote = :quote AND rate_date <= :date "

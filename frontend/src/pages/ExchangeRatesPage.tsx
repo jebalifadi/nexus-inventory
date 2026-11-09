@@ -75,7 +75,10 @@ export function ExchangeRatesPage() {
             <tbody>
               {rates.map((rate) => (
                 <tr key={rate.id}>
-                  <td className="nowrap">{formatDate(rate.rateDate)}</td>
+                  <td className="nowrap">
+                    {formatDate(rate.rateDate)}
+                    {rate.source !== 'MANUAL' && <div className="muted small">{rate.source}</div>}
+                  </td>
                   <td className="strong nowrap">
                     1 {rate.base} = {rate.rate} {rate.quote}
                   </td>
@@ -136,8 +139,8 @@ function AddRateDialog({ rates, currencies, onSaved, onClose }: DialogProps) {
   const farFromLast = entered && lastValue !== undefined && Math.abs(value - lastValue) / lastValue > WARN_DIFFERENCE
 
   async function save() {
-    // The database allows one rate per direction and day; say so plainly instead of a server error.
-    if (rates.some((r) => r.base === base && r.quote === quote && r.rateDate === rateDate)) {
+    // One rate per direction and day; say so plainly instead of a server error. A rate you enter replaces the bank's.
+    if (rates.some((r) => r.source === 'MANUAL' && r.base === base && r.quote === quote && r.rateDate === rateDate)) {
       throw new Error(`There is already a ${base} to ${quote} rate for ${formatDate(rateDate)}, and it cannot be changed.`)
     }
     await onSaved(await api.createExchangeRate({ base, quote, rate, rateDate }))

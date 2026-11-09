@@ -115,6 +115,15 @@ git --version
 
    For the frontend, `npm run build` type-checks and builds, and `npm run lint` checks the code.
 
+6. Run the browser tests (login, purchase, sale, payment, write-off, dashboard). They start their own
+   database, backend and web server, so your data and a running Nexus are not touched:
+
+   ```bash
+   cd frontend
+   npx playwright install chromium   # first time only
+   npm run test:browser
+   ```
+
 ## Environment variables
 
 Copy `.env.example` to `.env` to override the local defaults; `scripts/start.sh` reads it. `.env` is never committed.

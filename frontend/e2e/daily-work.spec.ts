@@ -124,11 +124,24 @@ test('comparing periods shows a change on all four cards', async ({ page }) => {
   await expect(page.locator('.summary-grid .delta')).toHaveCount(4)
 })
 
+test('a currency chosen earlier on this computer moves to the business settings', async ({ page, request }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('nexus.preferences', JSON.stringify({ language: 'en', theme: 'system', currency: 'USD' })),
+  )
+  await signIn(page)
+  const headers = { Authorization: `Bearer ${token}` }
+  await expect
+    .poll(async () => ((await (await request.get('/api/v1/settings', { headers })).json()) as { currency: string | null }).currency)
+    .toBe('USD')
+})
+
 test('the dashboard follows the Settings currency and asks for a missing rate', async ({ page, request }) => {
   await signIn(page)
   await page.goto('/settings')
   await expect(page.getByText(/^Version \d+\.\d+\.\d+$/)).toBeVisible()
-  await page.getByLabel('Default currency').selectOption('TND')
+  await page.getByRole('combobox', { name: /^Default currency/ }).selectOption('TND')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('status')).toHaveText('Saved.')
   await page.goto('/dashboard')
   await expect(page.getByText('Some amounts cannot be converted to TND')).toBeVisible()
   await expect(page.getByRole('link', { name: /EUR → TND/ })).toBeVisible()
@@ -140,4 +153,18 @@ test('the dashboard follows the Settings currency and asks for a missing rate', 
   await expect(bigNumber(page, 'Money invested')).toContainText('165.000')
   await expect(bigNumber(page, 'Revenue')).toContainText('60.000')
   await expect(bigNumber(page, 'Profit')).toContainText('9.000')
+})
+
+test('business settings are the same on another computer', async ({ page }) => {
+  await signIn(page) // a new browser profile: nothing saved locally
+  await expect(page.getByRole('link', { name: 'Currency: TND' })).toBeVisible()
+  await expect(bigNumber(page, 'Revenue')).toContainText('60.000')
+
+  await page.goto('/settings')
+  await expect(page.getByRole('spinbutton', { name: /^Low-stock limit/ })).toHaveValue('5')
+  await page.getByRole('spinbutton', { name: /^Payment reminder/ }).fill('45')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('status')).toHaveText('Saved.')
+  await page.reload()
+  await expect(page.getByRole('spinbutton', { name: /^Payment reminder/ })).toHaveValue('45')
 })

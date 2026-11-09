@@ -226,6 +226,7 @@ class ReportIntegrationTest {
                 .orElseThrow();
         assertThat(owed.balance()).isEqualTo(Money.of("100", "EUR"));
         assertThat(owed.converted()).isEqualTo(Money.of("200", "USD"));
+        assertThat(owed.overdue()).isTrue(); // open for years, reminder after 30 days
 
         // 10 pieces at 3 EUR add 30 EUR of stock: 60 USD today.
         BigDecimal before = reports.position("USD").stockValue().amount();

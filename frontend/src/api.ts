@@ -191,6 +191,17 @@ export async function fetchVersion(): Promise<string> {
   return (await request<{ version: string }>('/api/v1/system/info')).version
 }
 
+/** The owner's choices for the whole business. `currency` is null until one has been chosen. */
+export type BusinessSettings = { currency: string | null; lowStockLimit: number; paymentReminderDays: number }
+
+export function fetchBusinessSettings(): Promise<BusinessSettings> {
+  return request<BusinessSettings>('/api/v1/settings')
+}
+
+export function saveBusinessSettings(settings: BusinessSettings): Promise<BusinessSettings> {
+  return request<BusinessSettings>('/api/v1/settings', { method: 'PUT', body: JSON.stringify(settings) })
+}
+
 export function fetchCategories(): Promise<Category[]> {
   return request<Category[]>('/api/v1/categories')
 }
@@ -787,6 +798,8 @@ export type ReportOpenBalances = {
     balance: Money
     /** Null when no exchange rate is known. */
     converted: Money | null
+    /** Open for longer than the owner's payment reminder. */
+    overdue: boolean
   }[]
 }
 

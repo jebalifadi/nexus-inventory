@@ -44,25 +44,26 @@ class BusinessSettingsIntegrationTest {
 
     @Test
     void usesTheDefaultsUntilTheOwnerSaves() {
-        assertThat(settings.current()).isEqualTo(new BusinessSettings(null, 5, 30));
+        assertThat(settings.current()).isEqualTo(new BusinessSettings(null, 5, 30, 90));
     }
 
     @Test
     void savingTwiceKeepsOneRowWithTheLatestChoice() {
-        settings.update("tnd", 3, 45);
-        settings.update("EUR", 0, 1);
+        settings.update("tnd", 3, 45, 60);
+        settings.update("EUR", 0, 1, 1);
 
-        assertThat(settings.current()).isEqualTo(new BusinessSettings("EUR", 0, 1));
+        assertThat(settings.current()).isEqualTo(new BusinessSettings("EUR", 0, 1, 1));
         assertThat(jdbc.sql("SELECT count(*) FROM business_settings").query(Long.class).single()).isEqualTo(1);
     }
 
     @Test
     void refusesValuesThatMakeNoSense() {
-        assertThatThrownBy(() -> settings.update(" ", 5, 30)).isInstanceOf(BusinessRuleException.class);
-        assertThatThrownBy(() -> settings.update("EUR", -1, 30)).isInstanceOf(BusinessRuleException.class);
-        assertThatThrownBy(() -> settings.update("EUR", null, 30)).isInstanceOf(BusinessRuleException.class);
-        assertThatThrownBy(() -> settings.update("EUR", 5, 0)).isInstanceOf(BusinessRuleException.class);
-        assertThatThrownBy(() -> settings.update("GBP", 5, 30)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> settings.update(" ", 5, 30, 90)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> settings.update("EUR", -1, 30, 90)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> settings.update("EUR", null, 30, 90)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> settings.update("EUR", 5, 0, 90)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> settings.update("EUR", 5, 30, 0)).isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> settings.update("GBP", 5, 30, 90)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(settings.current().currency()).isNull();
     }
 

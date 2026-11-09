@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/settings")
 class BusinessSettingsController {
 
-    record SettingsChange(String currency, Integer lowStockLimit, Integer paymentReminderDays) {
+    record SettingsChange(String currency, Integer lowStockLimit, Integer paymentReminderDays, Integer slowStockDays) {
     }
 
     private final BusinessSettingsService settings;
@@ -27,6 +27,7 @@ class BusinessSettingsController {
 
     @PutMapping
     BusinessSettings update(@RequestBody SettingsChange change) {
-        return settings.update(change.currency(), change.lowStockLimit(), change.paymentReminderDays());
+        return settings.update(change.currency(), change.lowStockLimit(), change.paymentReminderDays(),
+                change.slowStockDays());
     }
 }

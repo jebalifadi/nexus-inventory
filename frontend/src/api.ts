@@ -192,7 +192,7 @@ export async function fetchVersion(): Promise<string> {
 }
 
 /** The owner's choices for the whole business. `currency` is null until one has been chosen. */
-export type BusinessSettings = { currency: string | null; lowStockLimit: number; paymentReminderDays: number }
+export type BusinessSettings = { currency: string | null; lowStockLimit: number; paymentReminderDays: number; slowStockDays: number }
 
 export function fetchBusinessSettings(): Promise<BusinessSettings> {
   return request<BusinessSettings>('/api/v1/settings')
@@ -821,6 +821,51 @@ export function fetchReportSummary(
   if (range.from) params.set('from', range.from)
   if (range.to) params.set('to', range.to)
   return request<ReportSummary>(`/api/v1/reports/summary?${params}`)
+}
+
+type DateRange = { from: string | null; to: string | null }
+
+function rangeQuery(range: DateRange, currency: string): URLSearchParams {
+  const params = new URLSearchParams({ currency })
+  if (range.from) params.set('from', range.from)
+  if (range.to) params.set('to', range.to)
+  return params
+}
+
+export type TrendMonth = { month: string; revenue: Money; profit: Money; salesCount: number; unknownProfitCount: number }
+export type MonthlyTrend = { currency: string; months: TrendMonth[]; missingRates: MissingRate[] }
+
+export function fetchTrend(range: DateRange, currency: string): Promise<MonthlyTrend> {
+  return request<MonthlyTrend>(`/api/v1/reports/trend?${rangeQuery(range, currency)}`)
+}
+
+export type ProductSales = {
+  productId: number
+  sku: string | null
+  name: string | null
+  categoryName: string | null
+  quantity: number
+  revenue: Money
+  profit: Money
+  /** Some of its sales are left out of the profit for lack of an exchange rate. */
+  unknownProfit: boolean
+}
+export type CategorySales = { categoryName: string | null; quantity: number; revenue: Money; profit: Money; unknownProfit: boolean }
+export type SalesAnalytics = { currency: string; products: ProductSales[]; categories: CategorySales[]; missingRates: MissingRate[] }
+
+export function fetchSalesAnalytics(range: DateRange, currency: string): Promise<SalesAnalytics> {
+  return request<SalesAnalytics>(`/api/v1/reports/sales-analytics?${rangeQuery(range, currency)}`)
+}
+
+export type SlowStock = {
+  currency: string
+  days: number
+  products: { productId: number; sku: string | null; name: string | null; quantity: number; oldest: string; daysInStock: number; value: Money }[]
+  missingRates: MissingRate[]
+}
+
+export function fetchSlowStock(currency: string): Promise<SlowStock> {
+  return request<SlowStock>(`/api/v1/reports/slow-stock?${new URLSearchParams({ currency })}`)
 }
 
 export function fetchReportPosition(currency: string): Promise<ReportPosition> {

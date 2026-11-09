@@ -9,6 +9,8 @@ while Nexus is below 1.0, the middle number goes up for new features and the las
 
 - Business settings saved on the server: default currency, low-stock limit and payment reminder.
   They are the same on every computer, and only the owner can change them.
+- Analytics: best sellers, profit per product and category, slow-moving stock, and a monthly chart
+  of revenue and profit. The slow-moving limit is a business setting.
 
 ## 0.3.0 - 2026-11-09
 

@@ -12,6 +12,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AuthProvider, RequireAuth, RequireOwner } from './auth'
 import { BusinessSettingsSync } from './components/BusinessSettingsSync'
 import { AddStockPage } from './pages/AddStockPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { CapitalPage } from './pages/CapitalPage'
 import { CatalogPage } from './pages/CatalogPage'
 import { ExchangeRatesPage } from './pages/ExchangeRatesPage'
@@ -99,6 +100,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <CapitalPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <RequireAuth>
+                  <AnalyticsPage />
                 </RequireAuth>
               }
             />

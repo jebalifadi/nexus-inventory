@@ -51,10 +51,36 @@ class ReportController {
                         List<MissingRate> missingRates) {
     }
 
-    private final ReportService reports;
+    record MonthView(String month, MoneyJson revenue, MoneyJson profit, int salesCount, int unknownProfitCount) {
+    }
 
-    ReportController(ReportService reports) {
+    record TrendView(String currency, List<MonthView> months, List<MissingRate> missingRates) {
+    }
+
+    record ProductView(long productId, String sku, String name, String categoryName, int quantity, MoneyJson revenue,
+                       MoneyJson profit, boolean unknownProfit) {
+    }
+
+    record CategoryView(String categoryName, int quantity, MoneyJson revenue, MoneyJson profit, boolean unknownProfit) {
+    }
+
+    record SalesAnalyticsView(String currency, List<ProductView> products, List<CategoryView> categories,
+                              List<MissingRate> missingRates) {
+    }
+
+    record SlowRowView(long productId, String sku, String name, int quantity, LocalDate oldest, long daysInStock,
+                       MoneyJson value) {
+    }
+
+    record SlowStockView(String currency, int days, List<SlowRowView> products, List<MissingRate> missingRates) {
+    }
+
+    private final ReportService reports;
+    private final AnalyticsService analytics;
+
+    ReportController(ReportService reports, AnalyticsService analytics) {
         this.reports = reports;
+        this.analytics = analytics;
     }
 
     /** Everything in {@code currency}. Leave out {@code from} or {@code to} for no limit on that side. */
@@ -64,6 +90,43 @@ class ReportController {
             @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return SummaryView.of(reports.summarize(from, to, currency));
+    }
+
+    /** Revenue and profit per month, in {@code currency}. */
+    @GetMapping("/trend")
+    TrendView trend(@RequestParam(name = "currency") String currency,
+            @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        MonthlyTrend t = reports.trend(from, to, currency);
+        return new TrendView(t.currency(), t.months().stream()
+                .map(m -> new MonthView(m.month(), MoneyJson.of(m.revenue()), MoneyJson.of(m.profit()), m.salesCount(),
+                        m.unknownProfitCount()))
+                .toList(), t.missingRates());
+    }
+
+    /** What sold in the period, per product and per category. */
+    @GetMapping("/sales-analytics")
+    SalesAnalyticsView salesAnalytics(@RequestParam(name = "currency") String currency,
+            @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        SalesAnalytics a = analytics.salesAnalytics(from, to, currency);
+        return new SalesAnalyticsView(a.currency(), a.products().stream()
+                .map(p -> new ProductView(p.productId(), p.sku(), p.name(), p.categoryName(), p.quantity(),
+                        MoneyJson.of(p.revenue()), MoneyJson.of(p.profit()), p.unknownProfit()))
+                .toList(), a.categories().stream()
+                .map(c -> new CategoryView(c.categoryName(), c.quantity(), MoneyJson.of(c.revenue()),
+                        MoneyJson.of(c.profit()), c.unknownProfit()))
+                .toList(), a.missingRates());
+    }
+
+    /** Goods in stock for longer than the owner's limit. */
+    @GetMapping("/slow-stock")
+    SlowStockView slowStock(@RequestParam(name = "currency") String currency) {
+        SlowStock s = analytics.slowStock(currency);
+        return new SlowStockView(s.currency(), s.days(), s.products().stream()
+                .map(r -> new SlowRowView(r.productId(), r.sku(), r.name(), r.quantity(), r.oldest(), r.daysInStock(),
+                        MoneyJson.of(r.value())))
+                .toList(), s.missingRates());
     }
 
     /** Stock value and open balances today, in {@code currency}. */

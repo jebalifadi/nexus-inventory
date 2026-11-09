@@ -8,7 +8,7 @@ import type { MessageKey } from '../i18n/en'
 type Group = { title: MessageKey | null; links: { to: string; label: MessageKey }[] }
 
 const GROUPS: Group[] = [
-  { title: null, links: [{ to: '/dashboard', label: 'nav.dashboard' }] },
+  { title: null, links: [{ to: '/dashboard', label: 'nav.dashboard' }, { to: '/analytics', label: 'nav.analytics' }] },
   {
     title: 'nav.stock',
     links: [

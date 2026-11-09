@@ -17,10 +17,10 @@ import {
   type Range,
 } from '../period'
 
-type Props = { value: Period; onChange: (period: Period) => void }
+type Props = { value: Period; onChange: (period: Period) => void; allowCompare?: boolean }
 
 /** One button showing the chosen period; it opens a panel with months, quick ranges and a calendar. */
-export function PeriodPicker({ value, onChange }: Props) {
+export function PeriodPicker({ value, onChange, allowCompare = true }: Props) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
@@ -56,6 +56,7 @@ export function PeriodPicker({ value, onChange }: Props) {
       </button>
       {open && (
         <PeriodPanel
+          allowCompare={allowCompare}
           id={panelId}
           initial={value}
           onCancel={close}
@@ -69,9 +70,9 @@ export function PeriodPicker({ value, onChange }: Props) {
   )
 }
 
-type PanelProps = { id: string; initial: Period; onCancel: () => void; onApply: (p: Period) => void }
+type PanelProps = { allowCompare: boolean; id: string; initial: Period; onCancel: () => void; onApply: (p: Period) => void }
 
-function PeriodPanel({ id, initial, onCancel, onApply }: PanelProps) {
+function PeriodPanel({ id, initial, onCancel, onApply, allowCompare }: PanelProps) {
   const t = useT()
   const today = todayIso()
   const panel = useRef<HTMLDivElement>(null)
@@ -302,6 +303,7 @@ function PeriodPanel({ id, initial, onCancel, onApply }: PanelProps) {
       </div>
 
       <div className="period-foot">
+        {allowCompare && (
         <label className="choice-inline">
           <input
             type="checkbox"
@@ -315,6 +317,7 @@ function PeriodPanel({ id, initial, onCancel, onApply }: PanelProps) {
             {!canCompare && <span className="muted small"> · {t('period.noCompare')}</span>}
           </span>
         </label>
+        )}
         <p className="period-words" aria-live="polite">
           {words}
         </p>

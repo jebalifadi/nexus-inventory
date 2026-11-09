@@ -738,10 +738,6 @@ export type WriteOff = {
   cost: Money[]
 }
 
-export function fetchWriteOffs(): Promise<WriteOff[]> {
-  return request<WriteOff[]>('/api/v1/write-offs')
-}
-
 /** The piece goes to the trash and its real cost counts as a loss. Restoring it cancels the loss. */
 export function writeOffUnit(unitId: string, reason: string) {
   return request<WriteOff>('/api/v1/write-offs', { method: 'POST', body: JSON.stringify({ unitId, reason }) })
@@ -750,4 +746,66 @@ export function writeOffUnit(unitId: string, reason: string) {
 /** What is left of the batch goes to the trash and its real cost counts as a loss. */
 export function writeOffLot(lotId: string, reason: string) {
   return request<WriteOff>('/api/v1/write-offs', { method: 'POST', body: JSON.stringify({ lotId, reason }) })
+}
+
+// --- Reports ----------------------------------------------------------------
+
+/** A rate dated on or before `neededBy` lets the report count every amount it had to leave out. */
+export type MissingRate = { from: string; to: string; neededBy: string }
+
+/** The business figures of one period, all converted into one currency by the backend. */
+export type ReportSummary = {
+  currency: string
+  /** False until something has been recorded, in any period. */
+  hasActivity: boolean
+  boughtFor: Money
+  shipping: Money
+  invested: Money
+  revenue: Money
+  expenses: Money
+  losses: Money
+  costs: Money
+  profit: Money
+  marginPercent: number | null
+  salesCount: number
+  /** Sales left out of the profit because an exchange rate is missing. */
+  unknownProfitCount: number
+  missingRates: MissingRate[]
+}
+
+export type ReportOpenBalances = {
+  total: Money
+  rows: {
+    reference: string
+    counterparty: string | null
+    date: string
+    daysOpen: number
+    balance: Money
+    /** Null when no exchange rate is known. */
+    converted: Money | null
+  }[]
+}
+
+/** Where the business stands today, at today's rate. */
+export type ReportPosition = {
+  currency: string
+  stockValue: Money
+  owedToYou: ReportOpenBalances
+  youOwe: ReportOpenBalances
+  missingRates: MissingRate[]
+}
+
+/** A null end means no limit on that side. */
+export function fetchReportSummary(
+  range: { from: string | null; to: string | null },
+  currency: string,
+): Promise<ReportSummary> {
+  const params = new URLSearchParams({ currency })
+  if (range.from) params.set('from', range.from)
+  if (range.to) params.set('to', range.to)
+  return request<ReportSummary>(`/api/v1/reports/summary?${params}`)
+}
+
+export function fetchReportPosition(currency: string): Promise<ReportPosition> {
+  return request<ReportPosition>(`/api/v1/reports/position?${new URLSearchParams({ currency })}`)
 }

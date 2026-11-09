@@ -90,8 +90,6 @@ export function previousRange(period: Range & { preset?: PresetId | null }): Ran
   return { from: addDays(from, -days), to: addDays(from, -1) }
 }
 
-export const inRange = (iso: string, range: Range) => (!range.from || iso >= range.from) && (!range.to || iso <= range.to)
-
 /** Always starts on This month: the 1st of the current month until today. */
 export const defaultPeriod = (): Period => ({ ...presetRange('thisMonth'), preset: 'thisMonth', compare: false })
 
